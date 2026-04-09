@@ -1,0 +1,5 @@
+# branch.oid 1234567890abcdef1234567890abcdef12345678
+# branch.head main
+1 M. N... 100644 100644 100644 abc123 abc124 src/café/naïve.ts
+1 .M N... 100644 100644 100644 def456 def457 "src/with space.ts"
+? "docs/new file.md"

@@ -1,0 +1,4 @@
+# branch.oid 1234567890abcdef1234567890abcdef12345678
+# branch.head feature
+2 R. N... 100644 100644 100644 abc123 abc124 R100 src/new-name.ts	src/old-name.ts
+2 RM N... 100644 100644 100644 def456 def457 R100 src/renamed.ts	src/original.ts

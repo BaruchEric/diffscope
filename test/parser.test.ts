@@ -61,4 +61,51 @@ describe("parseStatus", () => {
       },
     ]);
   });
+
+  test("parses renames with original path", () => {
+    const result = parseStatus(fixture("rename.txt"));
+    expect(result).toEqual([
+      {
+        path: "src/new-name.ts",
+        oldPath: "src/old-name.ts",
+        staged: "renamed",
+        unstaged: null,
+        isUntracked: false,
+        isImage: false,
+        isBinary: false,
+      },
+      {
+        path: "src/renamed.ts",
+        oldPath: "src/original.ts",
+        staged: "renamed",
+        unstaged: "modified",
+        isUntracked: false,
+        isImage: false,
+        isBinary: false,
+      },
+    ]);
+  });
+
+  test("handles unicode and quoted filenames", () => {
+    const result = parseStatus(fixture("unicode.txt"));
+    expect(result.map((e) => e.path)).toEqual([
+      "src/café/naïve.ts",
+      "src/with space.ts",
+      "docs/new file.md",
+    ]);
+  });
+
+  test("parses unmerged entries", () => {
+    const result = parseStatus(fixture("unmerged.txt"));
+    expect(result).toEqual([
+      {
+        path: "src/conflict.ts",
+        staged: "unmerged",
+        unstaged: "unmerged",
+        isUntracked: false,
+        isImage: false,
+        isBinary: false,
+      },
+    ]);
+  });
 });
