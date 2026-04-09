@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Commit, CommitDetail } from "@shared/types";
 import { api } from "../lib/api";
 import { DiffView } from "../components/diff-view";
@@ -8,10 +8,23 @@ export function HistoryTab() {
   const [focused, setFocused] = useState<string | null>(null);
   const [detail, setDetail] = useState<CommitDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
-    void api.log(100, 0).then(setCommits);
+    void api.log(200, 0).then(setCommits);
   }, []);
+
+  const filtered = useMemo(() => {
+    if (!query) return commits;
+    const q = query.toLowerCase();
+    return commits.filter(
+      (c) =>
+        c.subject.toLowerCase().includes(q) ||
+        c.body.toLowerCase().includes(q) ||
+        c.author.toLowerCase().includes(q) ||
+        c.shortSha.startsWith(q),
+    );
+  }, [commits, query]);
 
   useEffect(() => {
     if (!focused) return;
@@ -24,23 +37,36 @@ export function HistoryTab() {
 
   return (
     <div className="grid h-full grid-cols-[380px_1fr]">
-      <div className="overflow-auto border-r border-neutral-200 dark:border-neutral-800">
-        {commits.map((c) => (
-          <button
-            key={c.sha}
-            onClick={() => setFocused(c.sha)}
-            className={`block w-full truncate px-3 py-2 text-left text-sm ${
-              focused === c.sha
-                ? "bg-blue-100 dark:bg-blue-900/40"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
-            }`}
-          >
-            <div className="truncate font-medium">{c.subject}</div>
-            <div className="truncate text-xs text-neutral-500">
-              {c.shortSha} · {c.author} · {new Date(c.date).toLocaleString()}
-            </div>
-          </button>
-        ))}
+      <div className="flex flex-col border-r border-neutral-200 dark:border-neutral-800">
+        <div className="border-b border-neutral-200 p-2 dark:border-neutral-800">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search commits…"
+            className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          />
+        </div>
+        <div className="flex-1 overflow-auto">
+          {filtered.length === 0 && (
+            <p className="p-3 text-xs text-neutral-500">No commits match.</p>
+          )}
+          {filtered.map((c) => (
+            <button
+              key={c.sha}
+              onClick={() => setFocused(c.sha)}
+              className={`block w-full truncate px-3 py-2 text-left text-sm ${
+                focused === c.sha
+                  ? "bg-blue-100 dark:bg-blue-900/40"
+                  : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
+              }`}
+            >
+              <div className="truncate font-medium">{c.subject}</div>
+              <div className="truncate text-xs text-neutral-500">
+                {c.shortSha} · {c.author} · {new Date(c.date).toLocaleString()}
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
       <div className="overflow-auto">
         {loading && <div className="p-4 text-neutral-500">Loading commit…</div>}
