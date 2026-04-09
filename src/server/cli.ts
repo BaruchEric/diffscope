@@ -33,8 +33,33 @@ function staticDirForMode(): string {
   return resolve(import.meta.dir, "..", "..", "dist", "web");
 }
 
+const HELP = `diffscope — a local, read-only, live git diff viewer
+
+Usage:
+  diffscope [path]        open the enclosing repo of [path] (or CWD if omitted)
+  diffscope -h, --help    show this help
+  diffscope -v, --version show version
+
+Environment:
+  DIFFSCOPE_DEV_PORT      pin a fixed backend port (otherwise random)
+
+Once running, open the URL diffscope prints in your browser. If [path] is
+not inside a git repo, diffscope opens its picker UI so you can navigate
+to one.`;
+
 export async function main(argv: readonly string[]): Promise<void> {
   const arg = argv[0];
+
+  if (arg === "-h" || arg === "--help") {
+    console.log(HELP);
+    return;
+  }
+  if (arg === "-v" || arg === "--version") {
+    const pkg = await import("../../package.json", { with: { type: "json" } });
+    console.log(`diffscope ${(pkg as { default: { version: string } }).default.version}`);
+    return;
+  }
+
   let repoPath: string | null = null;
 
   if (arg) {
