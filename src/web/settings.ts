@@ -128,6 +128,9 @@ export interface Settings {
   commitDetailHeightPx: number;
   lastUsedTab: "working-tree" | "history" | "branches" | "stashes";
   diffMode: "unified" | "split";
+  terminalDrawerOpen: boolean;
+  terminalDrawerHeightPx: number;
+  terminalNoticeAcknowledged: boolean;
 }
 
 const STORAGE_KEY = "diffscope:settings:v1";
@@ -142,6 +145,9 @@ const DEFAULTS: Settings = {
   commitDetailHeightPx: 180,
   lastUsedTab: "working-tree",
   diffMode: "unified",
+  terminalDrawerOpen: false,
+  terminalDrawerHeightPx: 280,
+  terminalNoticeAcknowledged: false,
 };
 
 const SETTINGS_KEYS = Object.keys(DEFAULTS) as (keyof Settings)[];
