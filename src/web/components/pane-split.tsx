@@ -23,12 +23,25 @@ export function PaneSplit({
   const widthPx = useSettings((s) => s.fileListWidthPx);
   const [dragging, setDragging] = useState(false);
   const rafRef = useRef<number | null>(null);
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+
+  // Unmount cleanup — stops any in-flight drag.
+  useEffect(() => {
+    return () => {
+      dragCleanupRef.current?.();
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, []);
 
   // Clamp on window resize so a saved width doesn't overflow after window shrinks.
   useEffect(() => {
     const onResize = () => {
-      const clamped = clamp(useSettings.getState().fileListWidthPx);
-      if (clamped !== useSettings.getState().fileListWidthPx) {
+      const current = useSettings.getState().fileListWidthPx;
+      const clamped = clamp(current);
+      if (clamped !== current) {
         useSettings.getState().set({ fileListWidthPx: clamped });
       }
     };
@@ -50,11 +63,18 @@ export function PaneSplit({
         useSettings.getState().set({ fileListWidthPx: next });
       });
     };
-    const onUp = () => {
+    const cleanup = () => {
       setDragging(false);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      dragCleanupRef.current = null;
     };
+    const onUp = () => cleanup();
+    dragCleanupRef.current = cleanup;
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   }, []);
