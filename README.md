@@ -10,22 +10,29 @@ A local, read-only, live git diff viewer. Point it at any repo on your machine a
 ## Install (from source)
 
 ```bash
-git clone <this-repo> diffscope
+git clone https://github.com/BaruchEric/diffscope.git
 cd diffscope
 bun install
 bun run build:web
+bun link            # registers the `diffscope` command globally
 ```
 
 ## Run
 
 ```bash
-bun run src/server/cli.ts                  # open the enclosing repo of CWD
-bun run src/server/cli.ts /path/to/repo    # open an explicit repo
+diffscope                  # open the enclosing repo of CWD
+diffscope /path/to/repo    # open an explicit repo
+diffscope --help           # usage
+diffscope --version        # version
 ```
 
-Once published, `bunx diffscope [path]` will work the same way.
-
 If you point it at a directory that's not inside a git repo, the browser opens to a picker UI that lists recent repos and lets you browse the filesystem to find one.
+
+## Environment
+
+| Variable             | Effect                                                  |
+|----------------------|---------------------------------------------------------|
+| `DIFFSCOPE_DEV_PORT` | Pin a fixed backend port (otherwise random free port).  |
 
 ## Features
 
@@ -40,14 +47,14 @@ If you point it at a directory that's not inside a git repo, the browser opens t
 ## Development
 
 ```bash
-# Terminal 1 — backend, watching a scratch repo
-bun run --hot src/server/cli.ts /path/to/test-repo
+# Terminal 1 — backend on a fixed port (matches the Vite proxy target)
+DIFFSCOPE_DEV_PORT=41111 bun run --hot src/server/cli.ts /path/to/test-repo
 
-# Terminal 2 — Vite dev server with HMR (proxies /api → backend)
+# Terminal 2 — Vite dev server with HMR (proxies /api → 41111)
 bun run dev:web
 ```
 
-The Vite dev server lives on port 5173. Note: the proxy in `vite.config.ts` is hard-coded to `http://localhost:41111`, so set the backend's port accordingly during dev (or update the proxy target).
+Open <http://localhost:5173> for the live-reloading frontend. The Vite proxy in `vite.config.ts` targets `http://localhost:41111`, so always start the backend with `DIFFSCOPE_DEV_PORT=41111` during dev.
 
 ## Test
 
