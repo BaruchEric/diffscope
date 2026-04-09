@@ -7,44 +7,53 @@ export default {
   // from the codebase in the Phase 3-6 repaint pass.
   theme: {
     extend: {
+      // Channel-split token architecture:
+      // Category A colors (solid colors that may need /opacity) are defined
+      // in src/web/index.css as space-separated RGB channels and consumed
+      // here via `rgb(var(--token) / <alpha-value>)`. This lets Tailwind
+      // utilities like `bg-surface/95`, `text-fg/50`, `bg-accent-fg/20`
+      // "just work" across all themes without silent JIT drops.
+      //
+      // Category B tokens (accent-soft, diff-*-bg, hunk-bg) are pre-computed
+      // translucent washes — they stay as raw `var(--token)` references
+      // because their alpha is intentional and fixed. Do not apply /opacity
+      // to these; pick a Category A token or add a new wash token instead.
       colors: {
         bg: {
-          DEFAULT: "var(--bg)",
-          elevated: "var(--bg-elevated)",
+          DEFAULT: "rgb(var(--bg) / <alpha-value>)",
+          elevated: "rgb(var(--bg-elevated) / <alpha-value>)",
         },
         surface: {
-          DEFAULT: "var(--surface)",
-          translucent: "var(--surface-translucent)",
-          hover: "var(--surface-hover)",
+          DEFAULT: "rgb(var(--surface) / <alpha-value>)",
+          hover: "rgb(var(--surface-hover) / <alpha-value>)",
         },
         border: {
-          DEFAULT: "var(--border)",
-          strong: "var(--border-strong)",
+          DEFAULT: "rgb(var(--border) / <alpha-value>)",
+          strong: "rgb(var(--border-strong) / <alpha-value>)",
         },
         fg: {
-          DEFAULT: "var(--fg)",
-          muted: "var(--fg-muted)",
-          subtle: "var(--fg-subtle)",
+          DEFAULT: "rgb(var(--fg) / <alpha-value>)",
+          muted: "rgb(var(--fg-muted) / <alpha-value>)",
+          subtle: "rgb(var(--fg-subtle) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "var(--accent)",
-          fg: "var(--accent-fg)",
-          "fg-soft": "var(--accent-fg-soft)",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          fg: "rgb(var(--accent-fg) / <alpha-value>)",
           soft: "var(--accent-soft)",
         },
         "diff-add": {
           bg: "var(--diff-add-bg)",
-          fg: "var(--diff-add-fg)",
-          sign: "var(--diff-add-sign)",
+          fg: "rgb(var(--diff-add-fg) / <alpha-value>)",
+          sign: "rgb(var(--diff-add-sign) / <alpha-value>)",
         },
         "diff-del": {
           bg: "var(--diff-del-bg)",
-          fg: "var(--diff-del-fg)",
-          sign: "var(--diff-del-sign)",
+          fg: "rgb(var(--diff-del-fg) / <alpha-value>)",
+          sign: "rgb(var(--diff-del-sign) / <alpha-value>)",
         },
         hunk: {
           bg: "var(--hunk-bg)",
-          fg: "var(--hunk-fg)",
+          fg: "rgb(var(--hunk-fg) / <alpha-value>)",
         },
       },
       fontFamily: {

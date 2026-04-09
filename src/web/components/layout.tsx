@@ -64,7 +64,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <span
                   className={`rounded-full px-1.5 text-[10px] tabular-nums ${
                     tab === t.key
-                      ? "bg-accent-fg-soft text-accent-fg"
+                      ? "bg-accent-fg/20 text-accent-fg"
                       : "bg-surface-hover text-fg-muted"
                   }`}
                 >

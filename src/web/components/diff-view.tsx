@@ -113,7 +113,7 @@ export function DiffView({
 
   return (
     <div ref={setContainerEl} className="font-mono text-[13px]">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-y border-border bg-surface-translucent px-4 py-2 text-sm backdrop-blur">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-y border-border bg-surface/95 px-4 py-2 text-sm backdrop-blur">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             onClick={toggleCollapsed}

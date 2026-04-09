@@ -13,36 +13,52 @@ body,
    Single source of truth for all surface, foreground, border,
    accent, and diff colors. Each [data-theme] block is a
    complete theme — no partial overrides.
+
+   Category A (solid colors that may need /opacity) are stored
+   as space-separated R G B channel triplets and consumed via
+   rgb(var(--token) / <alpha-value>) in tailwind.config. This
+   lets utilities like bg-surface/95, bg-accent-fg/20, text-fg/50
+   work across every theme.
+
+   Category B (pre-computed translucent washes) stay as raw
+   rgba()/hex values. Consumers use them without /opacity
+   modifiers — the alpha is baked in.
+
+   Direct CSS references below (body, scrollbar, Aperture rule)
+   must wrap Category A tokens in rgb(...) because a bare
+   var(--fg) would resolve to the string "226 232 240" which
+   is not a valid color on its own.
    ─────────────────────────────────────────────────────────── */
 
 :root,
 [data-theme="midnight"] {
-  --bg:                  #0b0d10;
-  --bg-elevated:         #0d1016;
-  --surface:             #12151a;
-  --surface-translucent: rgba(18, 21, 26, 0.95);
-  --surface-hover:       #1a2230;
-  --border:         #1a2230;
-  --border-strong:  #2a3441;
+  /* Category A — channel-split solid colors */
+  --bg:             11 13 16;
+  --bg-elevated:    13 16 22;
+  --surface:        18 21 26;
+  --surface-hover:  26 34 48;
+  --border:         26 34 48;
+  --border-strong:  42 52 65;
 
-  --fg:             #e2e8f0;
-  --fg-muted:       #64748b;
-  --fg-subtle:      #475569;
+  --fg:             226 232 240;
+  --fg-muted:       100 116 139;
+  --fg-subtle:      71 85 105;
 
-  --accent:         #67e8f9;
-  --accent-fg:      #0b0d10;
-  --accent-fg-soft: rgba(11, 13, 16, 0.22);
+  --accent:         103 232 249;
+  --accent-fg:      11 13 16;
+
+  --diff-add-fg:    134 239 172;
+  --diff-add-sign:  34 197 94;
+  --diff-del-fg:    252 165 165;
+  --diff-del-sign:  239 68 68;
+
+  --hunk-fg:        103 232 249;
+
+  /* Category B — pre-computed translucent washes */
   --accent-soft:    rgba(103, 232, 249, 0.12);
-
   --diff-add-bg:    rgba(34, 197, 94, 0.08);
-  --diff-add-fg:    #86efac;
-  --diff-add-sign:  #22c55e;
   --diff-del-bg:    rgba(239, 68, 68, 0.09);
-  --diff-del-fg:    #fca5a5;
-  --diff-del-sign:  #ef4444;
-
   --hunk-bg:        rgba(103, 232, 249, 0.06);
-  --hunk-fg:        #67e8f9;
 
   --shadow-soft:    0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
 
@@ -57,32 +73,31 @@ body,
 }
 
 [data-theme="paper"] {
-  --bg:                  #faf7f1;
-  --bg-elevated:         #f5efe0;
-  --surface:             #fffefa;
-  --surface-translucent: rgba(255, 254, 250, 0.94);
-  --surface-hover:       #f5efe0;
-  --border:         #ede5d2;
-  --border-strong:  #d6cdb3;
+  --bg:             250 247 241;
+  --bg-elevated:    245 239 224;
+  --surface:        255 254 250;
+  --surface-hover:  245 239 224;
+  --border:         237 229 210;
+  --border-strong:  214 205 179;
 
-  --fg:             #1c1917;
-  --fg-muted:       #78716c;
-  --fg-subtle:      #a8a29e;
+  --fg:             28 25 23;
+  --fg-muted:       120 113 108;
+  --fg-subtle:      168 162 158;
 
-  --accent:         #c2410c;
-  --accent-fg:      #faf7f1;
-  --accent-fg-soft: rgba(250, 247, 241, 0.22);
+  --accent:         194 65 12;
+  --accent-fg:      250 247 241;
+
+  --diff-add-fg:    21 128 61;
+  --diff-add-sign:  21 128 61;
+  --diff-del-fg:    185 28 28;
+  --diff-del-sign:  185 28 28;
+
+  --hunk-fg:        154 52 18;
+
   --accent-soft:    rgba(194, 65, 12, 0.10);
-
   --diff-add-bg:    #ecfdf5;
-  --diff-add-fg:    #15803d;
-  --diff-add-sign:  #15803d;
   --diff-del-bg:    #fef2f2;
-  --diff-del-fg:    #b91c1c;
-  --diff-del-sign:  #b91c1c;
-
   --hunk-bg:        rgba(194, 65, 12, 0.07);
-  --hunk-fg:        #9a3412;
 
   --shadow-soft:    0 1px 2px rgba(28, 25, 23, 0.04), 0 8px 24px -12px rgba(28, 25, 23, 0.12);
 
@@ -97,32 +112,31 @@ body,
 }
 
 [data-theme="aperture"] {
-  --bg:                  #f7f7f5;
-  --bg-elevated:         #ffffff;
-  --surface:             #ffffff;
-  --surface-translucent: rgba(255, 255, 255, 0.94);
-  --surface-hover:       #f5f5f4;
-  --border:         #e7e5e4;
-  --border-strong:  #d6d3d1;
+  --bg:             247 247 245;
+  --bg-elevated:    255 255 255;
+  --surface:        255 255 255;
+  --surface-hover:  245 245 244;
+  --border:         231 229 228;
+  --border-strong:  214 211 209;
 
-  --fg:             #0c0a09;
-  --fg-muted:       #57534e;
-  --fg-subtle:      #a8a29e;
+  --fg:             12 10 9;
+  --fg-muted:       87 83 78;
+  --fg-subtle:      168 162 158;
 
-  --accent:         #b45309;
-  --accent-fg:      #ffffff;
-  --accent-fg-soft: rgba(255, 255, 255, 0.24);
+  --accent:         180 83 9;
+  --accent-fg:      255 255 255;
+
+  --diff-add-fg:    113 63 18;
+  --diff-add-sign:  180 83 9;
+  --diff-del-fg:    168 162 158;
+  --diff-del-sign:  214 211 209;
+
+  --hunk-fg:        180 83 9;
+
   --accent-soft:    rgba(180, 83, 9, 0.10);
-
   --diff-add-bg:    #fefce8;
-  --diff-add-fg:    #713f12;
-  --diff-add-sign:  #b45309;
   --diff-del-bg:    #fafaf9;
-  --diff-del-fg:    #a8a29e;
-  --diff-del-sign:  #d6d3d1;
-
   --hunk-bg:        rgba(180, 83, 9, 0.06);
-  --hunk-fg:        #b45309;
 
   --shadow-soft:    0 1px 2px rgba(12, 10, 9, 0.03), 0 12px 32px -12px rgba(12, 10, 9, 0.10);
 
@@ -137,8 +151,8 @@ body,
 }
 
 body {
-  background-color: var(--bg);
-  color: var(--fg);
+  background-color: rgb(var(--bg));
+  color: rgb(var(--fg));
   font-family: var(--font-sans);
   font-feature-settings: "cv11", "ss01";
 }
@@ -146,11 +160,11 @@ body {
 /* Thin scrollbars tinted by the active theme */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-color: rgb(var(--border-strong)) transparent;
 }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+*::-webkit-scrollbar-thumb { background: rgb(var(--border-strong)); border-radius: 99px; }
 
 /* Aperture's signature struck-through-gray removals. Expressed as a CSS
    rule (rather than a React conditional) so the diff row markup stays
@@ -158,5 +172,5 @@ body {
 [data-theme="aperture"] .diff-row-del code {
   text-decoration: line-through;
   text-decoration-thickness: 0.5px;
-  color: var(--diff-del-fg);
+  color: rgb(var(--diff-del-fg));
 }
