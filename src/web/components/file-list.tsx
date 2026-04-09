@@ -25,22 +25,61 @@ function group(status: FileStatus[]): Group[] {
   ];
 }
 
+/**
+ * Tiny fuzzy matcher: returns a score (higher = better) if every character of
+ * `needle` appears in order in `haystack`, otherwise null. Adjacent matches
+ * and matches after a path separator score higher to bias toward filename
+ * hits over deep-path noise.
+ */
+function fuzzyScore(haystack: string, needle: string): number | null {
+  if (!needle) return 0;
+  const h = haystack.toLowerCase();
+  const n = needle.toLowerCase();
+  let hi = 0;
+  let score = 0;
+  let lastMatch = -2;
+  for (let i = 0; i < n.length; i++) {
+    const c = n[i]!;
+    const found = h.indexOf(c, hi);
+    if (found < 0) return null;
+    // Adjacency bonus
+    if (found === lastMatch + 1) score += 5;
+    // Boundary bonus (after / or - or _ or .)
+    const prev = found > 0 ? h[found - 1] : "/";
+    if (prev === "/" || prev === "-" || prev === "_" || prev === ".") score += 3;
+    score += 1;
+    lastMatch = found;
+    hi = found + 1;
+  }
+  // Slight bonus for shorter haystacks
+  return score - haystack.length * 0.05;
+}
+
+function filterAndRank(files: FileStatus[], query: string): FileStatus[] {
+  if (!query) return files;
+  const scored: { file: FileStatus; score: number }[] = [];
+  for (const f of files) {
+    const score = fuzzyScore(f.path, query);
+    if (score !== null) scored.push({ file: f, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.map((s) => s.file);
+}
+
 export function FileList() {
   const status = useStore((s) => s.status);
   const focusedPath = useStore((s) => s.focusedPath);
   const focusFile = useStore((s) => s.focusFile);
   const [filter, setFilter] = useState("");
 
-  const groups = useMemo(() => {
-    const g = group(status);
-    if (!filter) return g;
-    return g.map((grp) => ({
-      ...grp,
-      files: grp.files.filter((f) =>
-        f.path.toLowerCase().includes(filter.toLowerCase()),
-      ),
-    }));
-  }, [status, filter]);
+  const groups = useMemo(
+    () =>
+      group(status).map((grp) => ({
+        ...grp,
+        files: filterAndRank(grp.files, filter),
+      })),
+    [status, filter],
+  );
 
   return (
     <div className="flex h-full flex-col border-r border-neutral-200 dark:border-neutral-800">
