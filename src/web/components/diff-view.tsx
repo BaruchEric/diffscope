@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { BlameLine, DiffLine, ParsedDiff } from "@shared/types";
 import { getHighlighter, langFromPath } from "../lib/highlight";
 import { escapeHtml } from "../lib/html";
@@ -13,6 +13,8 @@ import {
 interface Props {
   diff: ParsedDiff | null;
   loading?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
 }
 
 const LARGE_HUNK_LINE_THRESHOLD = 5000;
@@ -21,8 +23,19 @@ const LARGE_HUNK_LINE_THRESHOLD = 5000;
 // file-list pane can eat 300+px of the window.
 const SPLIT_MIN_CONTAINER_WIDTH = 900;
 
-export function DiffView({ diff, loading }: Props) {
+export function DiffView({
+  diff,
+  loading,
+  collapsed: collapsedProp,
+  onToggleCollapsed,
+}: Props) {
   const [userExpanded, setUserExpanded] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = collapsedProp ?? internalCollapsed;
+  const toggleCollapsed = useCallback(() => {
+    if (onToggleCollapsed) onToggleCollapsed();
+    else setInternalCollapsed((v) => !v);
+  }, [onToggleCollapsed]);
   const mode = useStore((s) => s.diffMode);
   const focusedPath = useStore((s) => s.focusedPath);
   const blameOnFor = useStore((s) => s.blameOnFor);
@@ -101,10 +114,21 @@ export function DiffView({ diff, loading }: Props) {
   return (
     <div ref={setContainerEl} className="font-mono text-[13px]">
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-y border-neutral-300 bg-neutral-200/95 px-4 py-2 text-sm backdrop-blur dark:border-neutral-700 dark:bg-neutral-800/95">
-        <FilePathLabel path={diff.path} oldPath={diff.oldPath} />
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <button
+            onClick={toggleCollapsed}
+            className="shrink-0 rounded px-1 text-xs text-neutral-500 hover:bg-neutral-300 dark:hover:bg-neutral-700"
+            title={collapsed ? "Expand file" : "Collapse file"}
+            aria-expanded={!collapsed}
+          >
+            {collapsed ? "▸" : "▾"}
+          </button>
+          <FilePathLabel path={diff.path} oldPath={diff.oldPath} />
+        </div>
         <DiffViewHeaderControls diff={diff} />
       </div>
-      {diff.hunks.map((h) => (
+      {!collapsed &&
+        diff.hunks.map((h) => (
         <div
           key={`${h.oldStart}-${h.newStart}-${h.header}`}
           className="border-b border-neutral-100 last:border-b-0 dark:border-neutral-900"

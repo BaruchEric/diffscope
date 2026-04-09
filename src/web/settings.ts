@@ -20,6 +20,7 @@ export interface Settings {
   editor: Editor;
   blameStickyOn: boolean;
   fileListWidthPx: number;
+  commitDetailHeightPx: number;
   lastUsedTab: "working-tree" | "history" | "branches" | "stashes";
   diffMode: "unified" | "split";
 }
@@ -33,6 +34,7 @@ const DEFAULTS: Settings = {
   editor: "none",
   blameStickyOn: false,
   fileListWidthPx: 320,
+  commitDetailHeightPx: 180,
   lastUsedTab: "working-tree",
   diffMode: "unified",
 };

@@ -1,12 +1,11 @@
 // src/web/components/pane-split.tsx
 // Two-child horizontal split with a draggable divider.
 // Left child width is persisted via useSettings.fileListWidthPx.
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { useSettings } from "../settings";
+import { type ReactNode } from "react";
+import { usePaneDrag } from "../lib/use-pane-drag";
 
 const MIN_WIDTH = 160;
 const MAX_FRACTION = 0.4;
-const DEFAULT_WIDTH = 320;
 // Below this viewport, the file-list pane should be allowed to collapse to
 // a very tight width so the diff area isn't completely crowded out.
 const NARROW_VIEWPORT = 720;
@@ -16,7 +15,7 @@ function effectiveMin(): number {
   return window.innerWidth < NARROW_VIEWPORT ? NARROW_MIN_WIDTH : MIN_WIDTH;
 }
 
-function clamp(px: number): number {
+function clampWidth(px: number): number {
   const min = effectiveMin();
   const max = Math.max(min + 80, Math.floor(window.innerWidth * MAX_FRACTION));
   return Math.min(Math.max(px, min), max);
@@ -29,81 +28,17 @@ export function PaneSplit({
   left: ReactNode;
   right: ReactNode;
 }) {
-  const widthPx = useSettings((s) => s.fileListWidthPx);
-  const [dragging, setDragging] = useState(false);
-  const rafRef = useRef<number | null>(null);
-  const dragCleanupRef = useRef<(() => void) | null>(null);
-
-  // Unmount cleanup — stops any in-flight drag.
-  useEffect(() => {
-    return () => {
-      dragCleanupRef.current?.();
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-    };
-  }, []);
-
-  // Clamp on window resize so a saved width doesn't overflow after window
-  // shrinks. rAF-throttled so rapid resizes don't thrash localStorage.
-  useEffect(() => {
-    let scheduled = false;
-    const onResize = () => {
-      if (scheduled) return;
-      scheduled = true;
-      requestAnimationFrame(() => {
-        scheduled = false;
-        const current = useSettings.getState().fileListWidthPx;
-        const clamped = clamp(current);
-        if (clamped !== current) {
-          useSettings.getState().set({ fileListWidthPx: clamped });
-        }
-      });
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setDragging(true);
-    const startX = e.clientX;
-    const startWidth = useSettings.getState().fileListWidthPx;
-
-    const onMove = (me: MouseEvent) => {
-      if (rafRef.current !== null) return;
-      rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = null;
-        const next = clamp(startWidth + (me.clientX - startX));
-        useSettings.getState().set({ fileListWidthPx: next });
-      });
-    };
-    const cleanup = () => {
-      setDragging(false);
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      dragCleanupRef.current = null;
-    };
-    const onUp = () => cleanup();
-    dragCleanupRef.current = cleanup;
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }, []);
-
-  const onDoubleClick = useCallback(() => {
-    useSettings.getState().set({ fileListWidthPx: DEFAULT_WIDTH });
-  }, []);
+  const { sizePx, dragging, onMouseDown, onDoubleClick } = usePaneDrag({
+    axis: "x",
+    settingsKey: "fileListWidthPx",
+    clamp: clampWidth,
+  });
 
   return (
     <div className="flex h-full min-h-0 w-full">
       <div
         className="h-full min-h-0 shrink-0 overflow-hidden"
-        style={{ width: widthPx }}
+        style={{ width: sizePx }}
       >
         {left}
       </div>
