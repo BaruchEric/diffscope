@@ -12,6 +12,8 @@ import {
   invalidateBlameCache,
   setCachedBlame,
 } from "./blame";
+import { createTerminalModule, type TerminalModule } from "./terminal";
+import type { TerminalSocketData } from "./terminal/ws";
 
 const MIME_BY_EXT: Record<string, string> = {
   png: "image/png",
@@ -84,6 +86,14 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
   if (repo) {
     hub = createEventHub(repo);
     await hub.start();
+  }
+
+  // Terminal module — created whenever a repo is loaded. Sessions don't
+  // survive a repo swap (see /api/open below): the fresh repo gets a
+  // fresh module so stale cwd/scripts don't linger.
+  let terminalModule: TerminalModule | null = null;
+  if (repo) {
+    terminalModule = createTerminalModule({ repoRoot: repo.cwd });
   }
 
   // Wraps repo-required endpoints: enforces that a repo is loaded and
@@ -164,6 +174,12 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
 
     if (pathname === "/api/stashes") {
       return withRepo((r) => r.getStashes());
+    }
+
+    // Terminal: scripts list
+    if (pathname === "/api/terminal/scripts") {
+      if (!terminalModule) return json({ error: "no repo loaded" }, 400);
+      return terminalModule.handleScriptsRequest();
     }
 
     // SSE stream
@@ -259,10 +275,13 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
         return errorResponse(err);
       }
       const prevHub = hub;
+      const prevTerminal = terminalModule;
       repo = nextRepo;
       hub = nextHub;
+      terminalModule = createTerminalModule({ repoRoot: nextRepo.cwd });
       invalidateBlameCache();
       if (prevHub) await prevHub.stop();
+      if (prevTerminal) await prevTerminal.shutdown();
       return json({ ok: true, root: found });
     }
 
@@ -320,14 +339,42 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
     return json({ error: "not found" }, 404);
   };
 
-  const server = serve({
+  const server = serve<TerminalSocketData, never>({
     port: opts.port,
-    async fetch(req) {
+    async fetch(req, srv) {
       try {
+        // Terminal WebSocket upgrade must run before the generic handler
+        // since the handler would otherwise 404 the route.
+        const url = new URL(req.url);
+        if (url.pathname === "/api/terminal/ws") {
+          if (!terminalModule) return json({ error: "no repo loaded" }, 400);
+          if (srv.upgrade(req, { data: { subscriptions: new Map() } })) {
+            return undefined as unknown as Response;
+          }
+          return new Response("upgrade failed", { status: 400 });
+        }
         return await handle(req);
       } catch (err) {
         return errorResponse(err);
       }
+    },
+    // Dispatcher: the active terminalModule can change on /api/open, so we
+    // forward every WS callback to whichever module is current. Sockets
+    // from a previous module are forcibly closed when that module shuts
+    // down, so the dispatcher always hits the right instance.
+    websocket: {
+      open(ws) {
+        terminalModule?.websocket.open?.(ws);
+      },
+      async message(ws, data) {
+        await terminalModule?.websocket.message?.(ws, data);
+      },
+      close(ws, code, reason) {
+        terminalModule?.websocket.close?.(ws, code, reason);
+      },
+      drain(ws) {
+        terminalModule?.websocket.drain?.(ws);
+      },
     },
   });
 
@@ -335,6 +382,7 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
     server,
     async stop() {
       if (hub) await hub.stop();
+      if (terminalModule) await terminalModule.shutdown();
       server.stop(true);
     },
   };
