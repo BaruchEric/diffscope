@@ -148,3 +148,12 @@ body {
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+
+/* Aperture's signature struck-through-gray removals. Expressed as a CSS
+   rule (rather than a React conditional) so the diff row markup stays
+   theme-agnostic — other presets just ignore this selector. */
+[data-theme="aperture"] .diff-row-del code {
+  text-decoration: line-through;
+  text-decoration-thickness: 0.5px;
+  color: var(--diff-del-fg);
+}

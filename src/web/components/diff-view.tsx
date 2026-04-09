@@ -1,9 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { BlameLine, DiffLine, ParsedDiff } from "@shared/types";
-import { getHighlighter, langFromPath } from "../lib/highlight";
+import { activeShikiTheme, getHighlighter, langFromPath } from "../lib/highlight";
 import { escapeHtml } from "../lib/html";
 import { useStore } from "../store";
-import { useSettings, type ThemeId } from "../settings";
+import { useSettings } from "../settings";
 import { BlameGutter } from "./blame-gutter";
 import {
   OpenInEditorLineIcon,
@@ -59,10 +59,10 @@ export function DiffView({
   }, [containerEl]);
 
   if (loading) {
-    return <div className="p-4 text-neutral-500">Loading diff…</div>;
+    return <div className="p-4 text-fg-muted">Loading diff…</div>;
   }
   if (!diff) {
-    return <div className="p-4 text-neutral-500">Select a file to view its diff.</div>;
+    return <div className="p-4 text-fg-muted">Select a file to view its diff.</div>;
   }
 
   const isImage = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(diff.path);
@@ -72,7 +72,7 @@ export function DiffView({
 
   if (diff.binary) {
     return (
-      <div className="p-4 text-sm text-neutral-500">
+      <div className="p-4 text-sm text-fg-muted">
         Binary file changed{" "}
         {diff.binary.oldSize !== undefined && diff.binary.newSize !== undefined
           ? `(${diff.binary.oldSize}B → ${diff.binary.newSize}B)`
@@ -88,12 +88,12 @@ export function DiffView({
   if (isLarge && !expanded) {
     return (
       <div className="p-4">
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-fg-muted">
           Large diff ({totalLines} lines) — collapsed by default.
         </p>
         <button
           onClick={() => setUserExpanded(true)}
-          className="mt-2 rounded bg-neutral-200 px-3 py-1 text-sm dark:bg-neutral-800"
+          className="mt-2 rounded bg-surface-hover px-3 py-1 text-sm text-fg"
         >
           Expand anyway
         </button>
@@ -113,11 +113,11 @@ export function DiffView({
 
   return (
     <div ref={setContainerEl} className="font-mono text-[13px]">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-y border-neutral-300 bg-neutral-200/95 px-4 py-2 text-sm backdrop-blur dark:border-neutral-700 dark:bg-neutral-800/95">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-y border-border bg-surface/95 px-4 py-2 text-sm backdrop-blur">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             onClick={toggleCollapsed}
-            className="shrink-0 rounded px-1 text-xs text-neutral-500 hover:bg-neutral-300 dark:hover:bg-neutral-700"
+            className="shrink-0 rounded px-1 text-xs text-fg-muted hover:bg-surface-hover"
             title={collapsed ? "Expand file" : "Collapse file"}
             aria-expanded={!collapsed}
           >
@@ -131,9 +131,9 @@ export function DiffView({
         diff.hunks.map((h) => (
         <div
           key={`${h.oldStart}-${h.newStart}-${h.header}`}
-          className="border-b border-neutral-100 last:border-b-0 dark:border-neutral-900"
+          className="border-b border-border last:border-b-0"
         >
-          <div className="bg-cyan-50 px-3 py-0.5 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300">
+          <div className="bg-hunk-bg px-3 py-0.5 text-hunk-fg">
             {h.header}
           </div>
           {effectiveMode === "unified" ? (
@@ -159,7 +159,7 @@ function FilePathLabel({ path, oldPath }: { path: string; oldPath?: string }) {
       {oldPath && oldPath !== path && (
         <>
           <PathParts path={oldPath} muted />
-          <span className="mx-2 text-neutral-500">→</span>
+          <span className="mx-2 text-fg-muted">→</span>
         </>
       )}
       <PathParts path={path} />
@@ -172,11 +172,11 @@ function PathParts({ path, muted }: { path: string; muted?: boolean }) {
   const dir = slash >= 0 ? path.slice(0, slash + 1) : "";
   const name = slash >= 0 ? path.slice(slash + 1) : path;
   const dirClass = muted
-    ? "text-neutral-400 dark:text-neutral-600"
-    : "text-neutral-500 dark:text-neutral-400";
+    ? "text-fg-subtle"
+    : "text-fg-muted";
   const nameClass = muted
-    ? "text-neutral-500 line-through dark:text-neutral-500"
-    : "font-semibold text-neutral-900 dark:text-neutral-100";
+    ? "text-fg-subtle line-through"
+    : "font-semibold text-fg";
   return (
     <>
       {dir && <span className={dirClass}>{dir}</span>}
@@ -207,8 +207,8 @@ function DiffViewHeaderControls({ diff }: { diff: ParsedDiff }) {
         className={
           "rounded px-2 py-0.5 text-xs " +
           (blameOn
-            ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-            : "hover:bg-neutral-100 dark:hover:bg-neutral-800")
+            ? "bg-accent-soft text-accent"
+            : "hover:bg-surface-hover")
         }
       >
         Blame
@@ -226,15 +226,15 @@ interface SplitRow {
 const SPLIT_CELL_CLASS =
   "overflow-hidden whitespace-pre pr-2 align-top [&_pre]:inline [&_pre]:!bg-transparent [&_code]:!bg-transparent";
 const SPLIT_GUTTER_CLASS =
-  "select-none px-2 text-right align-top text-neutral-400";
-const SPLIT_EMPTY_BG = "bg-neutral-50 dark:bg-neutral-900/40";
+  "select-none px-2 text-right align-top text-fg-subtle";
+const SPLIT_EMPTY_BG = "bg-bg-elevated";
 
 function sideBg(line: DiffLine | null, kind: "del" | "add"): string {
   if (!line) return SPLIT_EMPTY_BG;
   if (line.kind === kind) {
     return kind === "del"
-      ? "bg-red-100 dark:bg-red-900"
-      : "bg-green-100 dark:bg-green-900";
+      ? "bg-diff-del-bg"
+      : "bg-diff-add-bg";
   }
   return "";
 }
@@ -283,7 +283,7 @@ const SplitHunk = memo(function SplitHunk({
                 }}
               />
               <td
-                className={`${SPLIT_GUTTER_CLASS} border-l border-neutral-200 dark:border-neutral-800 ${rightBg}`}
+                className={`${SPLIT_GUTTER_CLASS} border-l border-border ${rightBg}`}
               >
                 {row.right?.newLine ?? ""}
               </td>
@@ -359,9 +359,9 @@ function HunkLines({
             className={
               "group " +
               (l.kind === "add"
-                ? "bg-green-100 dark:bg-green-900"
+                ? "diff-row-add bg-diff-add-bg text-diff-add-fg"
                 : l.kind === "del"
-                ? "bg-red-100 dark:bg-red-900"
+                ? "diff-row-del bg-diff-del-bg text-diff-del-fg"
                 : "")
             }
           >
@@ -370,10 +370,10 @@ function HunkLines({
                 <BlameGutter blame={blame} lineNumber={l.newLine ?? l.oldLine} />
               </td>
             )}
-            <td className="w-12 select-none px-2 text-right align-top text-neutral-400">
+            <td className="w-12 select-none px-2 text-right align-top text-fg-subtle">
               {l.oldLine ?? ""}
             </td>
-            <td className="w-12 select-none px-2 text-right align-top text-neutral-400">
+            <td className="w-12 select-none px-2 text-right align-top text-fg-subtle">
               {l.newLine ?? ""}
             </td>
             <td
@@ -394,22 +394,11 @@ function HunkLines({
   );
 }
 
-function resolveShikiTheme(setting: ThemeId): "github-dark" | "github-light" {
-  // Temporary — the full shiki theme swap lands in Phase 4. Until then we
-  // collapse all concrete themes onto the existing github-{dark,light}
-  // palette and let `auto` follow the OS preference at highlight time.
-  if (setting === "midnight") return "github-dark";
-  if (setting === "paper" || setting === "aperture") return "github-light";
-  const isDark =
-    typeof window !== "undefined" &&
-    window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  return isDark ? "github-dark" : "github-light";
-}
-
 /**
  * Async-highlight an array of text lines via Shiki, returning HTML strings or
  * null while loading. Used by both unified and split diff renderers. Reacts
- * to the user's theme setting so toggling light/dark re-highlights.
+ * to the user's theme setting so toggling themes re-highlights with the
+ * shiki theme declared in the active preset's THEMES entry.
  */
 function useHighlightedTexts(path: string, texts: string[]): string[] | null {
   const [highlighted, setHighlighted] = useState<string[] | null>(null);
@@ -422,7 +411,7 @@ function useHighlightedTexts(path: string, texts: string[]): string[] | null {
     void (async () => {
       const highlighter = await getHighlighter();
       const lang = langFromPath(path);
-      const theme = resolveShikiTheme(themeSetting);
+      const theme = activeShikiTheme();
       const html = texts.map((text) => {
         try {
           return highlighter.codeToHtml(text, { lang, theme });
@@ -448,7 +437,7 @@ function ImageDiff({ diff }: { diff: ParsedDiff }) {
   return (
     <div className="grid h-full grid-cols-2 gap-4 p-6">
       <figure className="flex flex-col items-center gap-2 overflow-hidden">
-        <figcaption className="text-xs text-neutral-500">
+        <figcaption className="text-xs text-fg-muted">
           {beforeMissing ? "(new file — no previous version)" : "Before (HEAD)"}
         </figcaption>
         {beforeMissing ? (
@@ -457,13 +446,13 @@ function ImageDiff({ diff }: { diff: ParsedDiff }) {
           <img
             src={beforeUrl}
             onError={() => setBeforeMissing(true)}
-            className="max-h-full max-w-full border border-neutral-200 dark:border-neutral-800"
+            className="max-h-full max-w-full border border-border"
             alt="before"
           />
         )}
       </figure>
       <figure className="flex flex-col items-center gap-2 overflow-hidden">
-        <figcaption className="text-xs text-neutral-500">
+        <figcaption className="text-xs text-fg-muted">
           {afterMissing ? "(deleted — no current version)" : "After (working tree)"}
         </figcaption>
         {afterMissing ? (
@@ -472,7 +461,7 @@ function ImageDiff({ diff }: { diff: ParsedDiff }) {
           <img
             src={afterUrl}
             onError={() => setAfterMissing(true)}
-            className="max-h-full max-w-full border border-neutral-200 dark:border-neutral-800"
+            className="max-h-full max-w-full border border-border"
             alt="after"
           />
         )}
@@ -483,7 +472,7 @@ function ImageDiff({ diff }: { diff: ParsedDiff }) {
 
 function ImagePlaceholder({ label }: { label: string }) {
   return (
-    <div className="flex h-32 w-full items-center justify-center rounded border border-dashed border-neutral-300 text-sm text-neutral-500 dark:border-neutral-700">
+    <div className="flex h-32 w-full items-center justify-center rounded border border-dashed border-border-strong text-sm text-fg-muted">
       {label}
     </div>
   );

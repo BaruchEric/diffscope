@@ -11,11 +11,11 @@ export function BlameGutter({
   lineNumber: number | undefined;
 }) {
   if (!blame || lineNumber === undefined) {
-    return <span className="w-28 shrink-0 text-right text-neutral-400">—</span>;
+    return <span className="w-28 shrink-0 text-right text-fg-subtle">—</span>;
   }
   const entry = blame[lineNumber - 1];
   if (!entry) {
-    return <span className="w-28 shrink-0 text-right text-neutral-400">—</span>;
+    return <span className="w-28 shrink-0 text-right text-fg-subtle">—</span>;
   }
   const rel = relativeTime(entry.authorTimeIso, "short");
   const initials = entry.author
@@ -31,7 +31,7 @@ export function BlameGutter({
         useStore.getState().setTab("history");
       }}
       title={`${entry.author} • ${entry.authorTimeIso}\n${entry.summary}`}
-      className="w-28 shrink-0 overflow-hidden truncate text-right font-mono text-[10px] text-neutral-500 hover:text-blue-500"
+      className="w-28 shrink-0 overflow-hidden truncate text-right font-mono text-[10px] text-fg-muted hover:text-accent"
     >
       <span>{entry.shaShort}</span>
       <span className="mx-1">{initials}</span>
