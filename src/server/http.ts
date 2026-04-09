@@ -76,9 +76,10 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
 
     // REST: repo state
     if (pathname === "/api/info") {
-      if (!repo) return json({ loaded: false });
+      const cwd = process.cwd();
+      if (!repo) return json({ loaded: false, cwd });
       const root = await repo.getRepoRoot().catch(() => null);
-      return json({ loaded: true, root });
+      return json({ loaded: true, root, cwd });
     }
 
     if (pathname === "/api/status") {

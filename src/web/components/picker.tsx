@@ -55,12 +55,32 @@ export function Picker() {
 
   useEffect(() => {
     let cancelled = false;
-    void api.recents().then((r) => {
-      if (!cancelled) setRecents(r);
-    });
-    void api.browse().then((b) => {
-      if (!cancelled) setBrowse(b);
-    });
+    void (async () => {
+      const [r, b, i] = await Promise.allSettled([
+        api.recents(),
+        api.browse(),
+        api.info(),
+      ]);
+      if (cancelled) return;
+      if (r.status === "fulfilled") setRecents(r.value);
+      if (b.status === "fulfilled") setBrowse(b.value);
+      // Default path input: last-opened repo → server's cwd → empty.
+      // Only prefill if the user hasn't started typing yet.
+      const defaultPath =
+        (r.status === "fulfilled" && r.value[0]?.path) ||
+        (i.status === "fulfilled" && i.value.cwd) ||
+        "";
+      if (defaultPath) {
+        setPathInput((prev) => (prev === "" ? defaultPath : prev));
+      }
+      // Surface backend failures — previously swallowed by `void`, which
+      // left the picker empty and unusable with no indication of why.
+      if (b.status === "rejected" || i.status === "rejected") {
+        setError(
+          "Can't reach the diffscope backend. In dev, make sure `bun run dev:server` is running alongside `bun run dev:web`.",
+        );
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -125,7 +145,11 @@ export function Picker() {
           <input
             value={pathInput}
             onChange={(e) => setPathInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && pathInput) void open(pathInput);
+            }}
             placeholder="/path/to/repo"
+            autoFocus
             className="flex-1 rounded border border-border-strong bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none"
           />
           <button

@@ -19,7 +19,8 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  info: () => fetchJson<{ loaded: boolean; root?: string }>("/api/info"),
+  info: () =>
+    fetchJson<{ loaded: boolean; root?: string; cwd?: string }>("/api/info"),
   status: () => fetchJson<FileStatus[]>("/api/status"),
   diff: (path: string, staged: boolean) =>
     fetchJson<ParsedDiff | null>(
