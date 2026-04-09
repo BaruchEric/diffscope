@@ -81,7 +81,7 @@ export function HistoryTab() {
       <div className="flex shrink-0 items-center gap-3 px-4 pb-3 pt-2 text-xs text-fg-muted">
         <button
           onClick={() => void navigator.clipboard.writeText(detail.sha)}
-          className="rounded bg-surface-hover px-2 py-0.5 font-mono text-fg hover:bg-surface-hover"
+          className="rounded bg-surface px-2 py-0.5 font-mono text-fg hover:bg-surface-hover"
           title="Copy full SHA"
         >
           {detail.shortSha}
