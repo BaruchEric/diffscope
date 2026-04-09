@@ -77,25 +77,18 @@ function mergeByName(groups: ScriptEntry[][]): ScriptEntry[] {
   return [...map.values()];
 }
 
-export interface ResolveOptions {
-  withWarning?: boolean;
+export interface ResolveResult {
+  entries: ScriptEntry[];
+  warning?: string;
 }
 
-export async function resolveScripts(
-  repoRoot: string,
-): Promise<ScriptEntry[]>;
-export async function resolveScripts(
-  repoRoot: string,
-  opts: { withWarning: true },
-): Promise<{ entries: ScriptEntry[]; warning?: string }>;
-export async function resolveScripts(
-  repoRoot: string,
-  opts?: ResolveOptions,
-): Promise<ScriptEntry[] | { entries: ScriptEntry[]; warning?: string }> {
-  const pkgResult = await readJsonWithError<PackageJson>(join(repoRoot, "package.json"));
-  const userResult = await readJsonWithError<UserConfig>(
-    join(repoRoot, ".diffscope/scripts.json"),
-  );
+export async function resolveScripts(repoRoot: string): Promise<ResolveResult> {
+  // Read both files in parallel — the dropdown open latency is dominated
+  // by these two round-trips.
+  const [pkgResult, userResult] = await Promise.all([
+    readJsonWithError<PackageJson>(join(repoRoot, "package.json")),
+    readJsonWithError<UserConfig>(join(repoRoot, ".diffscope/scripts.json")),
+  ]);
 
   const entries = mergeByName([
     BUILTINS,
@@ -103,16 +96,12 @@ export async function resolveScripts(
     fromUserConfig(userResult.value),
   ]);
 
-  let warning: string | undefined;
-  if (pkgResult.parseError) warning = "package.json: parse error";
+  const warnings: string[] = [];
+  if (pkgResult.parseError) warnings.push("package.json: parse error");
   if (userResult.parseError) {
-    warning = warning
-      ? `${warning}; .diffscope/scripts.json: parse error`
-      : ".diffscope/scripts.json: parse error";
+    warnings.push(".diffscope/scripts.json: parse error");
   }
+  const warning = warnings.length > 0 ? warnings.join("; ") : undefined;
 
-  if (opts?.withWarning) {
-    return warning ? { entries, warning } : { entries };
-  }
-  return entries;
+  return warning ? { entries, warning } : { entries };
 }

@@ -21,6 +21,11 @@ export interface TerminalSocketData {
   subscriptions: Map<string, () => void>;
 }
 
+/** Single source of truth for the user's shell. */
+function getUserShell(): string {
+  return process.env.SHELL || "/bin/zsh";
+}
+
 function send(
   ws: ServerWebSocket<TerminalSocketData>,
   frame: TerminalServerFrame,
@@ -69,9 +74,8 @@ export function createTerminalWsHandler(
   deps: WsDeps,
 ): WebSocketHandler<TerminalSocketData> {
   return {
-    open(ws) {
-      ws.data = { subscriptions: new Map() };
-    },
+    // Note: `ws.data` is initialized at upgrade time by the caller
+    // (http.ts / the test fixture). We don't touch it in `open`.
 
     async message(ws, raw) {
       let frame: TerminalClientFrame;
@@ -106,8 +110,8 @@ export function createTerminalWsHandler(
           let title = frame.title ?? "terminal";
           let scriptName: string | undefined;
 
+          command = getUserShell();
           if (frame.kind === "shell") {
-            command = process.env.SHELL || "/bin/zsh";
             args = ["-l"];
             title = frame.title ?? command.split("/").pop() ?? "shell";
           } else {
@@ -130,7 +134,6 @@ export function createTerminalWsHandler(
             }
             // Route through the user's shell so shell features (pipes,
             // env expansion, &&) work without quoting gymnastics.
-            command = process.env.SHELL || "/bin/zsh";
             args = ["-l", "-c", entry.command];
             title = frame.title ?? entry.name;
             scriptName = entry.name;

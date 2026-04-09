@@ -146,7 +146,9 @@ export function createTerminalStore(
             t.id === id ? { ...t, ...patch } : t,
           ),
         });
-        // status/exitCode aren't persisted, so no persist() call here.
+        // Persist only when a persisted field changes (title / scriptName).
+        // status/exitCode are server-owned and re-derived on attach.
+        if ("title" in patch || "scriptName" in patch) persist();
       },
 
       clearAll() {
@@ -161,12 +163,9 @@ export function createTerminalStore(
 
 // Singleton used by the real app. Tests that need isolation can build their
 // own with `createTerminalStore({ storage: fakeStorage })`.
-// Use globalThis with a safe cast so this file typechecks under both the
-// server tsconfig (no DOM lib) and the web tsconfig (DOM lib).
-const defaultStorage: Storage | undefined = (() => {
-  const g = globalThis as unknown as { localStorage?: Storage };
-  return g.localStorage;
-})();
+// globalThis is used (rather than `window`) so this file typechecks under
+// both the server tsconfig (no DOM lib) and the web tsconfig (DOM lib).
+const defaultStorage = (globalThis as { localStorage?: Storage }).localStorage;
 
 export const useTerminalStore: TerminalStore = createTerminalStore({
   storage: defaultStorage,

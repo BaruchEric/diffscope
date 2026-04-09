@@ -2,7 +2,6 @@
 // Singleton WebSocket client for /api/terminal/ws. The socket and
 // subscriber registry live at module scope so every terminal pane shares
 // one connection; the protocol multiplexes by termId.
-import { useEffect, useState } from "react";
 import type {
   TerminalClientFrame,
   TerminalServerFrame,
@@ -43,7 +42,15 @@ function onMessage(evt: MessageEvent): void {
     return;
   }
   const id = "id" in frame && typeof frame.id === "string" ? frame.id : undefined;
-  if (!id) return;
+  if (!id) {
+    // Error frames may arrive without an id (e.g. malformed client frame).
+    // Log them so they aren't silently swallowed — there's no per-id
+    // subscriber to route them to.
+    if (frame.op === "error") {
+      console.warn("terminal ws error:", frame.message);
+    }
+    return;
+  }
   const set = handlersById.get(id);
   if (set && set.size > 0) {
     for (const h of set) h(frame);
@@ -55,6 +62,8 @@ function onMessage(evt: MessageEvent): void {
     pendingById.set(id, queue);
   }
 }
+
+let firstOpen = true;
 
 function open(): Promise<void> {
   if (socket && socket.readyState === WebSocket.OPEN) return Promise.resolve();
@@ -68,6 +77,15 @@ function open(): Promise<void> {
     ws.onopen = () => {
       connecting = false;
       reconnectDelay = 250;
+      // On every reconnect (but not the very first open) re-attach all
+      // ids we have live subscribers for so the server resumes streaming
+      // after a backend restart or dropped connection. Without this,
+      // panes silently freeze after a reconnect.
+      if (!firstOpen && handlersById.size > 0) {
+        const ids = [...handlersById.keys()];
+        ws.send(JSON.stringify({ op: "attach", ids }));
+      }
+      firstOpen = false;
       resolve();
       while (openWaiters.length > 0) openWaiters.shift()!();
     };
@@ -122,25 +140,4 @@ export function attachIds(ids: string[]): void {
   void open().then(() => {
     sendFrame({ op: "attach", ids });
   });
-}
-
-/**
- * React hook exposing connection readiness. Components that only need to
- * send/subscribe can import the module functions directly; this hook is
- * for re-rendering on connection state.
- */
-export function useTerminalWs(): { ready: boolean } {
-  const [ready, setReady] = useState(
-    socket !== null && socket.readyState === WebSocket.OPEN,
-  );
-  useEffect(() => {
-    let cancelled = false;
-    void open().then(() => {
-      if (!cancelled) setReady(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return { ready };
 }

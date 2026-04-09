@@ -8,6 +8,7 @@ import type {
   ParsedDiff,
   Stash,
 } from "@shared/types";
+import type { ScriptsResponse } from "../../shared/terminal-protocol";
 
 /** Shared recent-repo shape — the server and web both consume this. */
 export interface RecentEntry {
@@ -74,4 +75,5 @@ export const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ path }),
     }),
+  terminalScripts: () => fetchJson<ScriptsResponse>("/api/terminal/scripts"),
 };

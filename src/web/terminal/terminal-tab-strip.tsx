@@ -3,7 +3,7 @@
 // merged predefined-script list (fetched fresh on every dropdown open).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTerminalStore, type TerminalMeta } from "./terminal-store";
-import { fetchScripts } from "./terminal-api";
+import { api } from "../lib/api";
 import type { ScriptEntry, ScriptsResponse } from "../../shared/terminal-protocol";
 
 export interface PendingSpawn {
@@ -33,7 +33,8 @@ export function TerminalTabStrip({ onRequestSpawn }: TerminalTabStripProps) {
   const openDropdown = useCallback(() => {
     setDropdownOpen(true);
     setLoading(true);
-    fetchScripts()
+    api
+      .terminalScripts()
       .then((r) => setScripts(r))
       .catch(() =>
         setScripts({ entries: [], warning: "Failed to load scripts" }),
@@ -126,11 +127,21 @@ function TabButton({
   onClose(e: React.MouseEvent): void;
 }) {
   const exited = terminal.status === "exited";
+  // Uses a div role="tab" + a real nested <button> for the close affordance
+  // so the close button isn't inside another <button> (invalid HTML).
   return (
-    <button
-      type="button"
+    <div
+      role="tab"
+      aria-selected={active}
+      tabIndex={0}
       onClick={onClick}
-      className={`group flex shrink-0 items-center gap-1.5 rounded px-2 py-0.5 ${
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`group flex shrink-0 cursor-pointer items-center gap-1.5 rounded px-2 py-0.5 outline-none focus-visible:ring-1 focus-visible:ring-accent ${
         active
           ? "bg-surface-hover text-fg"
           : "text-fg-muted hover:bg-surface-hover/50"
@@ -145,16 +156,16 @@ function TabButton({
       <span className={`truncate ${exited ? "line-through" : ""}`}>
         {terminal.title}
       </span>
-      <span
-        role="button"
+      <button
+        type="button"
         aria-label={`Close ${terminal.title}`}
         tabIndex={-1}
         onClick={onClose}
         className="rounded px-1 text-fg-subtle opacity-0 hover:text-fg group-hover:opacity-100"
       >
         ×
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 

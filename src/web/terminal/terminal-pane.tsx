@@ -12,6 +12,32 @@ import { useSettings } from "../settings";
 import { currentXtermTheme } from "./xterm-theme";
 import type { TerminalServerFrame } from "../../shared/terminal-protocol";
 
+// Stateless and reusable — one per module is enough.
+const KEYSTROKE_ENCODER = new TextEncoder();
+
+function decodeBase64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/**
+ * Encode bytes to base64 in chunks to avoid "too many arguments" RangeError
+ * that `String.fromCharCode(...bytes)` hits on large pastes / clipboard blobs.
+ */
+function encodeBytesToBase64(bytes: Uint8Array): string {
+  const CHUNK = 0x8000;
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, i + CHUNK)),
+    );
+  }
+  return btoa(bin);
+}
+
 export interface TerminalPaneProps {
   id: string;
   /** True for brand-new panes (spawn on mount). False for rehydrated ones
@@ -26,7 +52,6 @@ export interface TerminalPaneProps {
 export function TerminalPane({ id, spawnOnMount, spawnRequest }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
   const themeId = useSettings((s) => s.theme);
 
   // Mount once per id.
@@ -46,7 +71,6 @@ export function TerminalPane({ id, spawnOnMount, spawnRequest }: TerminalPanePro
     term.loadAddon(new WebLinksAddon());
     term.open(container);
     termRef.current = term;
-    fitRef.current = fit;
     try {
       fit.fit();
     } catch {
@@ -54,17 +78,16 @@ export function TerminalPane({ id, spawnOnMount, spawnRequest }: TerminalPanePro
     }
 
     const { cols, rows } = term;
+    // Track the last dimensions we sent to the server so we can dedupe
+    // resize frames — the ResizeObserver fires on every layout change,
+    // but xterm's cell grid only rounds to discrete cols/rows.
+    let lastSentCols = cols;
+    let lastSentRows = rows;
 
     // Single subscription — all server frames for this id route through here.
     const unsub = subscribe(id, (frame: TerminalServerFrame) => {
-      if (frame.op === "replay") {
-        const bytes = Uint8Array.from(atob(frame.b64), (c) => c.charCodeAt(0));
-        term.write(bytes);
-        return;
-      }
-      if (frame.op === "data") {
-        const bytes = Uint8Array.from(atob(frame.b64), (c) => c.charCodeAt(0));
-        term.write(bytes);
+      if (frame.op === "replay" || frame.op === "data") {
+        term.write(decodeBase64ToBytes(frame.b64));
         return;
       }
       if (frame.op === "spawned") {
@@ -118,19 +141,25 @@ export function TerminalPane({ id, spawnOnMount, spawnRequest }: TerminalPanePro
 
     // Forward user keystrokes.
     const keyDisposable = term.onData((data) => {
-      const bytes = new TextEncoder().encode(data);
+      const bytes = KEYSTROKE_ENCODER.encode(data);
       sendFrame({
         op: "data",
         id,
-        b64: btoa(String.fromCharCode(...bytes)),
+        b64: encodeBytesToBase64(bytes),
       });
     });
 
-    // Resize on container changes.
+    // Resize on container changes. ResizeObserver fires on every layout
+    // change, but xterm's cell grid only changes at discrete cols/rows
+    // boundaries — dedupe so we don't spam the PTY with identical ioctls.
     const observer = new ResizeObserver(() => {
       try {
         fit.fit();
-        sendFrame({ op: "resize", id, cols: term.cols, rows: term.rows });
+        if (term.cols !== lastSentCols || term.rows !== lastSentRows) {
+          lastSentCols = term.cols;
+          lastSentRows = term.rows;
+          sendFrame({ op: "resize", id, cols: term.cols, rows: term.rows });
+        }
       } catch {
         // container may be hidden — skip
       }
@@ -143,7 +172,6 @@ export function TerminalPane({ id, spawnOnMount, spawnRequest }: TerminalPanePro
       unsub();
       term.dispose();
       termRef.current = null;
-      fitRef.current = null;
     };
     // spawnOnMount/spawnRequest are only read on first mount; re-running
     // this effect would re-spawn the PTY, which we never want.

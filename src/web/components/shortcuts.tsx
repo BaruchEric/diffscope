@@ -82,18 +82,16 @@ export function Shortcuts() {
 
       // Ctrl/Cmd+` toggles the terminal drawer. Must run before the
       // inInput gate so it works from any focus context (including an
-      // active xterm instance).
-      if ((e.metaKey || e.ctrlKey) && e.key === "`" && !e.shiftKey) {
+      // active xterm instance). Use e.code so the binding is independent
+      // of keyboard layout — e.key is "`" on US but "ò" on IT, etc.
+      if ((e.metaKey || e.ctrlKey) && e.code === "Backquote") {
         e.preventDefault();
-        const cur = useSettings.getState().terminalDrawerOpen;
-        useSettings.getState().set({ terminalDrawerOpen: !cur });
-        return;
-      }
-      // Ctrl/Cmd+Shift+` opens the drawer. Shift+backtick produces `~`
-      // on US layouts, so detect via e.key === "~".
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "~") {
-        e.preventDefault();
-        useSettings.getState().set({ terminalDrawerOpen: true });
+        if (e.shiftKey) {
+          useSettings.getState().set({ terminalDrawerOpen: true });
+        } else {
+          const cur = useSettings.getState().terminalDrawerOpen;
+          useSettings.getState().set({ terminalDrawerOpen: !cur });
+        }
         return;
       }
 

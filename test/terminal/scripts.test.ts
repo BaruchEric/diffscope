@@ -14,7 +14,7 @@ describe("terminal scripts resolver", () => {
   });
 
   test("returns only built-ins when no package.json and no user config", async () => {
-    const entries = await resolveScripts(temp.root);
+    const { entries } = await resolveScripts(temp.root);
     expect(entries.every((e) => e.group === "builtin")).toBe(true);
     expect(entries.find((e) => e.name === "git status")).toBeTruthy();
   });
@@ -24,7 +24,7 @@ describe("terminal scripts resolver", () => {
       join(temp.root, "package.json"),
       JSON.stringify({ scripts: { dev: "vite", test: "bun test" } }),
     );
-    const entries = await resolveScripts(temp.root);
+    const { entries } = await resolveScripts(temp.root);
     const pkg = entries.filter((e) => e.group === "package");
     expect(pkg.find((e) => e.name === "dev")?.command).toBe("bun run dev");
     expect(pkg.find((e) => e.name === "test")?.command).toBe("bun run test");
@@ -42,7 +42,7 @@ describe("terminal scripts resolver", () => {
         scripts: [{ name: "test", command: "bun test --coverage" }],
       }),
     );
-    const entries = await resolveScripts(temp.root);
+    const { entries } = await resolveScripts(temp.root);
     const tests = entries.filter((e) => e.name === "test");
     expect(tests).toHaveLength(1);
     expect(tests[0]?.group).toBe("user");
@@ -57,7 +57,7 @@ describe("terminal scripts resolver", () => {
         scripts: [{ name: "git status", command: "git status -sb" }],
       }),
     );
-    const entries = await resolveScripts(temp.root);
+    const { entries } = await resolveScripts(temp.root);
     const gs = entries.filter((e) => e.name === "git status");
     expect(gs).toHaveLength(1);
     expect(gs[0]?.group).toBe("user");
@@ -66,9 +66,7 @@ describe("terminal scripts resolver", () => {
 
   test("malformed package.json logs a warning and still returns other groups", async () => {
     writeFileSync(join(temp.root, "package.json"), "{ this is not json");
-    const { entries, warning } = await resolveScripts(temp.root, {
-      withWarning: true,
-    });
+    const { entries, warning } = await resolveScripts(temp.root);
     expect(entries.some((e) => e.group === "builtin")).toBe(true);
     expect(entries.some((e) => e.group === "package")).toBe(false);
     expect(warning).toMatch(/package\.json/);
@@ -81,9 +79,7 @@ describe("terminal scripts resolver", () => {
     );
     mkdirSync(join(temp.root, ".diffscope"));
     writeFileSync(join(temp.root, ".diffscope/scripts.json"), "{broken");
-    const { entries, warning } = await resolveScripts(temp.root, {
-      withWarning: true,
-    });
+    const { entries, warning } = await resolveScripts(temp.root);
     expect(entries.find((e) => e.name === "dev")?.group).toBe("package");
     expect(entries.some((e) => e.group === "user")).toBe(false);
     expect(warning).toMatch(/scripts\.json/);
@@ -101,7 +97,7 @@ describe("terminal scripts resolver", () => {
         ],
       }),
     );
-    const entries = await resolveScripts(temp.root);
+    const { entries } = await resolveScripts(temp.root);
     const user = entries.filter((e) => e.group === "user");
     expect(user).toHaveLength(1);
     expect(user[0]?.name).toBe("good");

@@ -38,12 +38,20 @@ function handleCommand(cmd) {
         return;
       }
       try {
+        // TERM is always overridden by the host so parent callers never
+        // have to remember to set it. When `cmd.env` is absent we use the
+        // host's own process.env directly (avoids a full env clone in
+        // the IPC layer).
+        const env = {
+          ...(cmd.env ?? process.env),
+          TERM: "xterm-256color",
+        };
         const proc = pty.spawn(cmd.command, cmd.args ?? [], {
           name: "xterm-256color",
           cols: cmd.cols ?? 80,
           rows: cmd.rows ?? 24,
           cwd: cmd.cwd ?? process.cwd(),
-          env: cmd.env ?? process.env,
+          env,
         });
         sessions.set(cmd.id, proc);
         proc.onData((d) => {

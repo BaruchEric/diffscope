@@ -22,7 +22,7 @@ export function createTerminalModule(opts: TerminalModuleOptions): TerminalModul
   const registry = createPtyRegistry();
 
   const resolveScript = async (name: string) => {
-    const entries = await resolveScripts(opts.repoRoot);
+    const { entries } = await resolveScripts(opts.repoRoot);
     return entries.find((e) => e.name === name);
   };
 
@@ -33,7 +33,7 @@ export function createTerminalModule(opts: TerminalModuleOptions): TerminalModul
   });
 
   const handleScriptsRequest = async (): Promise<Response> => {
-    const result = await resolveScripts(opts.repoRoot, { withWarning: true });
+    const result = await resolveScripts(opts.repoRoot);
     const body: ScriptsResponse = {
       entries: result.entries,
       warning: result.warning,

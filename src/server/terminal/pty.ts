@@ -254,6 +254,10 @@ export function createPtyRegistry(): PtyRegistry {
     };
     sessions.set(id, session);
 
+    // Send only the caller-provided env (if any) over IPC. When omitted,
+    // the host defaults to its own process.env so we don't pay to
+    // serialize hundreds of parent env vars on every spawn. TERM is set
+    // on the host side in pty-host.mjs regardless.
     sendCommand({
       t: "spawn",
       id,
@@ -262,7 +266,7 @@ export function createPtyRegistry(): PtyRegistry {
       cwd: opts.cwd,
       cols: opts.cols,
       rows: opts.rows,
-      env: { ...(opts.env ?? (process.env as Record<string, string>)), TERM: "xterm-256color" },
+      ...(opts.env ? { env: opts.env } : {}),
     });
 
     return publicView(session);
@@ -292,13 +296,19 @@ export function createPtyRegistry(): PtyRegistry {
     const s = sessions.get(id);
     if (!s || s.exitCode !== null) return;
     sendCommand({ t: "kill", id, signal: "SIGHUP" });
-    // Escalate after 1s if the host hasn't reported exit.
-    setTimeout(() => {
+    // Escalate after 1s if the host hasn't reported exit. Clear the timer
+    // via the exit handler so a fast-exiting process doesn't leave a dead
+    // timer in the queue.
+    const escalate = setTimeout(() => {
       const still = sessions.get(id);
       if (still && still.exitCode === null) {
         sendCommand({ t: "kill", id, signal: "SIGKILL" });
       }
     }, 1000);
+    s.exitHandlers.add(function clearEscalate() {
+      clearTimeout(escalate);
+      s.exitHandlers.delete(clearEscalate);
+    });
   };
 
   const close = (id: string): void => {
