@@ -12,11 +12,11 @@ export function StatusBar() {
   const untracked = status.filter((f) => f.isUntracked).length;
 
   return (
-    <footer className="flex h-6 items-center gap-3 border-t border-neutral-200 bg-neutral-50 px-3 text-[11px] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+    <footer className="flex h-6 items-center gap-3 border-t border-border bg-bg-elevated px-3 text-[11px] text-fg-muted">
       <span className="flex items-center gap-1">
         <span
-          className={`h-1.5 w-1.5 rounded-full ${
-            watcherDown ? "bg-amber-500" : "bg-green-500"
+          className={`live-dot inline-block h-1.5 w-1.5 rounded-full bg-accent ${
+            watcherDown ? "opacity-50" : ""
           }`}
         />
         {watcherDown ? "live updates off" : "live"}
@@ -25,30 +25,30 @@ export function StatusBar() {
         <span>
           ⎇ {current.name}
           {current.upstream && (
-            <span className="ml-1 text-neutral-500">
+            <span className="ml-1 text-fg-subtle">
               {current.ahead > 0 && ` ↑${current.ahead}`}
               {current.behind > 0 && ` ↓${current.behind}`}
             </span>
           )}
         </span>
       )}
-      <span className="text-neutral-500">
-        {staged > 0 && <span className="text-blue-600 dark:text-blue-400">+{staged} staged</span>}
+      <span className="text-fg-subtle">
+        {staged > 0 && <span className="text-diff-add-sign">+{staged} staged</span>}
         {staged > 0 && (unstaged > 0 || untracked > 0) && " · "}
-        {unstaged > 0 && <span className="text-amber-600 dark:text-amber-400">{unstaged} unstaged</span>}
+        {unstaged > 0 && <span className="text-accent">{unstaged} unstaged</span>}
         {unstaged > 0 && untracked > 0 && " · "}
-        {untracked > 0 && <span className="text-green-600 dark:text-green-400">{untracked} untracked</span>}
+        {untracked > 0 && <span className="text-diff-add-sign">{untracked} untracked</span>}
         {staged === 0 && unstaged === 0 && untracked === 0 && "clean"}
       </span>
       <div className="ml-auto flex items-center gap-2">
-        <span className="truncate font-mono text-neutral-500">
+        <span className="truncate font-mono text-fg-subtle">
           {repo?.headSha?.slice(0, 7)}
         </span>
         <button
           onClick={() => useStore.getState().openSettings()}
           title="Settings (,)"
           aria-label="Open settings"
-          className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+          className="text-fg-muted hover:text-fg"
         >
           ⚙
         </button>

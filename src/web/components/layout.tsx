@@ -33,12 +33,14 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-neutral-200 bg-neutral-50 px-3 py-2 sm:px-4 dark:border-neutral-800 dark:bg-neutral-900">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border bg-bg-elevated px-3 py-2 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-          <span className="font-semibold">diffscope</span>
+          <span className="font-display text-[15px] font-medium tracking-tight text-fg">
+            diff<span className="text-accent">·</span>scope
+          </span>
           {repoRoot && (
             <span
-              className="hidden min-w-0 truncate text-sm text-neutral-500 md:inline"
+              className="hidden min-w-0 truncate font-mono text-xs text-fg-subtle md:inline"
               title={repoRoot}
             >
               {shortenPath(repoRoot)}
@@ -52,8 +54,8 @@ export function Layout({ children }: { children: ReactNode }) {
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 rounded px-2 py-1 text-sm sm:px-3 ${
                 tab === t.key
-                  ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-                  : "text-neutral-600 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                  ? "bg-accent text-accent-fg"
+                  : "text-fg-muted hover:bg-surface-hover hover:text-fg"
               }`}
             >
               <span className="hidden sm:inline">{t.label}</span>
@@ -62,8 +64,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 <span
                   className={`rounded-full px-1.5 text-[10px] tabular-nums ${
                     tab === t.key
-                      ? "bg-neutral-700 text-neutral-100 dark:bg-neutral-300 dark:text-neutral-800"
-                      : "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                      ? "bg-accent-fg/20 text-accent-fg"
+                      : "bg-surface-hover text-fg-muted"
                   }`}
                 >
                   {counts[t.key]}
@@ -74,19 +76,19 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
         <div className="flex items-center gap-2">
           {watcherDown && (
-            <span className="hidden text-xs text-amber-600 lg:inline">
+            <span className="hidden text-xs text-accent lg:inline">
               ⚠ Live updates off
             </span>
           )}
           <button
             onClick={() => setDiffMode(diffMode === "unified" ? "split" : "unified")}
-            className="rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+            className="rounded border border-border-strong px-2 py-1 text-xs text-fg-muted hover:border-accent hover:text-fg"
           >
             {diffMode === "unified" ? "Split" : "Unified"}
           </button>
           <button
             onClick={togglePaused}
-            className="rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+            className="rounded border border-border-strong px-2 py-1 text-xs text-fg-muted hover:border-accent hover:text-fg"
             title={paused ? "Resume live updates" : "Pause live updates"}
           >
             <span className="hidden sm:inline">
