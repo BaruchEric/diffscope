@@ -171,16 +171,17 @@ interface ThemePickerProps {
 }
 
 function ThemePicker({ current, onSelect }: ThemePickerProps) {
+  // For the Auto card, render the preview using whichever theme it would
+  // currently resolve to. Hoisted out of the map so matchMedia runs once
+  // per open/render instead of once per card — only Auto actually reads
+  // prefersDark, the other three are passthroughs in resolveThemeId.
+  const prefersDark =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
   return (
     <div className="grid grid-cols-2 gap-3">
       {THEMES.map((t) => {
         const isActive = current === t.id;
-        // For the Auto card, render the preview using whichever theme it
-        // would currently resolve to. We compute prefersDark on render —
-        // the picker is transient enough that re-renders are fine.
-        const prefersDark =
-          typeof window !== "undefined" &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches;
         const previewId = resolveThemeId(t.id, prefersDark);
         return (
           <button

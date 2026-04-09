@@ -1,13 +1,12 @@
 import { useEffect, useRef } from "react";
-import { useStore } from "../store";
+import { useStore, type Toast } from "../store";
 
 const TOAST_TTL_MS = 5000;
 
-// Variant styles keyed by toast kind. The store currently emits "warning"
-// and "error"; a "success" variant is also defined here so future callers
-// can adopt it without re-touching this file.
-const VARIANT_CLASSES: Record<string, string> = {
-  success: "bg-diff-add-bg text-diff-add-fg border-diff-add-sign",
+// Variant styles keyed by the store's Toast["kind"] union. Add a new entry
+// here only after widening the store type — the Record constraint enforces
+// that the two stay in sync.
+const VARIANT_CLASSES: Record<Toast["kind"], string> = {
   warning: "bg-accent-soft text-accent border-accent",
   error: "bg-diff-del-bg text-diff-del-fg border-diff-del-sign",
 };
@@ -57,7 +56,7 @@ export function Toasts() {
   return (
     <div className="pointer-events-none fixed bottom-10 right-4 z-50 flex flex-col gap-2">
       {toasts.map((t) => {
-        const variant = VARIANT_CLASSES[t.kind] ?? VARIANT_CLASSES.warning;
+        const variant = VARIANT_CLASSES[t.kind];
         return (
           <div
             key={t.id}
