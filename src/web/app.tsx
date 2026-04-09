@@ -4,6 +4,7 @@ import { Picker } from "./components/picker";
 import { Shortcuts } from "./components/shortcuts";
 import { Toasts } from "./components/toasts";
 import { SettingsModal } from "./components/settings-modal";
+import { CommandPalette } from "./components/command-palette";
 import { WorkingTreeTab } from "./tabs/working-tree";
 import { HistoryTab } from "./tabs/history";
 import { BranchesTab } from "./tabs/branches";
@@ -40,6 +41,7 @@ export function App() {
         <Shortcuts />
         <Toasts />
         <SettingsModal />
+        <CommandPalette />
       </>
     );
 
@@ -54,6 +56,7 @@ export function App() {
       <Shortcuts />
       <Toasts />
       <SettingsModal />
+      <CommandPalette />
     </>
   );
 }
