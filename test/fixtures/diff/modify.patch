@@ -1,0 +1,14 @@
+diff --git a/src/cli.ts b/src/cli.ts
+index abc123..def456 100644
+--- a/src/cli.ts
++++ b/src/cli.ts
+@@ -12,7 +12,9 @@ export async function main() {
+   const cwd = process.cwd();
+   const repo = await findRepo(cwd);
+-  if (!repo) throw new Error("not a repo");
++  if (!repo) {
++    openRepoPicker();
++    return;
++  }
+   return startServer(repo);
+ }

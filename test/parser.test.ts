@@ -109,3 +109,52 @@ describe("parseStatus", () => {
     ]);
   });
 });
+
+import { parseDiff } from "../src/server/parser";
+
+const diffFixture = (name: string) =>
+  readFileSync(join(import.meta.dir, "fixtures/diff", name), "utf8");
+
+describe("parseDiff", () => {
+  test("parses a basic modify patch", () => {
+    const result = parseDiff(diffFixture("modify.patch"));
+    expect(result).toHaveLength(1);
+    expect(result[0]!.path).toBe("src/cli.ts");
+    expect(result[0]!.hunks).toHaveLength(1);
+    const hunk = result[0]!.hunks[0]!;
+    expect(hunk.oldStart).toBe(12);
+    expect(hunk.oldLines).toBe(7);
+    expect(hunk.newStart).toBe(12);
+    expect(hunk.newLines).toBe(9);
+    const kinds = hunk.lines.map((l) => l.kind);
+    expect(kinds).toContain("context");
+    expect(kinds).toContain("add");
+    expect(kinds).toContain("del");
+    expect(hunk.lines.filter((l) => l.kind === "add")).toHaveLength(4);
+    expect(hunk.lines.filter((l) => l.kind === "del")).toHaveLength(1);
+  });
+
+  test("parses rename with oldPath", () => {
+    const result = parseDiff(diffFixture("rename.patch"));
+    expect(result).toHaveLength(1);
+    expect(result[0]!.path).toBe("src/new.ts");
+    expect(result[0]!.oldPath).toBe("src/old.ts");
+  });
+
+  test("marks binary files", () => {
+    const result = parseDiff(diffFixture("binary.patch"));
+    expect(result).toHaveLength(1);
+    expect(result[0]!.path).toBe("logo.png");
+    expect(result[0]!.binary).toBeDefined();
+    expect(result[0]!.hunks).toHaveLength(0);
+  });
+
+  test("handles no-newline-at-eof marker", () => {
+    const result = parseDiff(diffFixture("no-newline.patch"));
+    const lines = result[0]!.hunks[0]!.lines;
+    // The "\ No newline" marker should NOT appear as a diff line
+    expect(lines.every((l) => !l.text.startsWith("\\"))).toBe(true);
+    expect(lines.filter((l) => l.kind === "add")).toHaveLength(1);
+    expect(lines.filter((l) => l.kind === "del")).toHaveLength(1);
+  });
+});
