@@ -27,16 +27,16 @@ function Breadcrumb({
     <nav className="flex min-w-0 items-center gap-1 truncate font-mono">
       <button
         onClick={() => void onNavigate("/")}
-        className="text-blue-600 hover:underline"
+        className="text-accent hover:underline"
       >
         /
       </button>
       {segments.map((s, i) => (
         <span key={s.path} className="flex items-center gap-1">
-          {i > 0 && <span className="text-neutral-400">/</span>}
+          {i > 0 && <span className="text-fg-subtle">/</span>}
           <button
             onClick={() => void onNavigate(s.path)}
-            className="text-blue-600 hover:underline"
+            className="text-accent hover:underline"
           >
             {s.label}
           </button>
@@ -86,17 +86,17 @@ export function Picker() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-8">
-      <h1 className="text-2xl font-semibold">Open a repository</h1>
+      <h1 className="font-display text-2xl text-fg">Open a repository</h1>
 
       {error && (
-        <div className="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+        <div className="rounded border border-diff-del-sign bg-diff-del-bg p-3 text-sm text-diff-del-fg">
           {error}
         </div>
       )}
 
       {recents.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-fg-subtle">
             Recents
           </h2>
           <ul className="space-y-1">
@@ -104,10 +104,10 @@ export function Picker() {
               <li key={r.path}>
                 <button
                   onClick={() => void open(r.path)}
-                  className="flex w-full items-center justify-between gap-3 rounded px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                  className="flex w-full items-center justify-between gap-3 rounded border-l-2 border-transparent px-3 py-2 text-left text-fg hover:border-accent hover:bg-surface-hover"
                 >
                   <span className="truncate">{r.path}</span>
-                  <span className="shrink-0 text-xs text-neutral-500">
+                  <span className="shrink-0 text-xs text-fg-subtle">
                     {relativeTime(r.lastOpenedAt)}
                   </span>
                 </button>
@@ -118,7 +118,7 @@ export function Picker() {
       )}
 
       <section>
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">
+        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-fg-subtle">
           Or open a folder
         </h2>
         <div className="mb-2 flex gap-2">
@@ -126,23 +126,23 @@ export function Picker() {
             value={pathInput}
             onChange={(e) => setPathInput(e.target.value)}
             placeholder="/path/to/repo"
-            className="flex-1 rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="flex-1 rounded border border-border-strong bg-surface px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none"
           />
           <button
             onClick={() => pathInput && void open(pathInput)}
-            className="rounded bg-neutral-900 px-4 py-2 text-sm text-white dark:bg-neutral-100 dark:text-neutral-900"
+            className="rounded bg-accent px-4 py-2 text-sm text-accent-fg hover:brightness-110"
           >
             Open
           </button>
         </div>
         {browse && (
-          <div className="rounded border border-neutral-200 dark:border-neutral-800">
-            <div className="flex items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-3 py-2 text-xs dark:border-neutral-800 dark:bg-neutral-900">
+          <div className="rounded border border-border bg-bg-elevated shadow-soft">
+            <div className="flex items-center justify-between gap-2 border-b border-border bg-surface px-3 py-2 text-xs text-fg">
               <Breadcrumb path={browse.path} onNavigate={navigateTo} />
               {browse.parent && (
                 <button
                   onClick={() => void navigateTo(browse.parent!)}
-                  className="shrink-0 text-blue-600 hover:underline"
+                  className="shrink-0 text-accent hover:underline"
                 >
                   ↑ Parent
                 </button>
@@ -153,15 +153,17 @@ export function Picker() {
                 <li key={e.path} className="flex items-center">
                   <button
                     onClick={() => void navigateTo(e.path)}
-                    className="flex-1 truncate px-3 py-1.5 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                    className="flex-1 truncate px-3 py-1.5 text-left text-sm text-fg hover:bg-surface-hover"
                   >
                     📁 {e.name}
-                    {e.isGitRepo && <span className="ml-2 text-xs text-green-600">git</span>}
+                    {e.isGitRepo && (
+                      <span className="ml-2 text-xs text-diff-add-sign">git</span>
+                    )}
                   </button>
                   {e.isGitRepo && (
                     <button
                       onClick={() => void open(e.path)}
-                      className="mr-2 rounded bg-neutral-200 px-2 py-0.5 text-xs dark:bg-neutral-800"
+                      className="mr-2 rounded border border-border-strong px-2 py-0.5 text-xs text-fg-muted hover:border-accent hover:text-fg"
                     >
                       Open
                     </button>

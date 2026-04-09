@@ -191,20 +191,22 @@ export function Shortcuts() {
   return (
     <div
       onClick={() => setHelpOpen(false)}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="min-w-[420px] max-w-[560px] rounded-lg bg-white p-6 shadow-xl dark:bg-neutral-900"
+        className="min-w-[420px] max-w-[560px] rounded-lg border border-border bg-bg-elevated p-6 shadow-soft"
       >
-        <h2 className="mb-4 text-lg font-semibold">Keyboard shortcuts</h2>
+        <h2 className="mb-4 font-display text-lg text-fg">Keyboard shortcuts</h2>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           {SHORTCUT_HELP.map((row) => (
             <div key={row.keys} className="contents">
-              <dt className="font-mono text-neutral-600 dark:text-neutral-400">
-                {row.keys}
+              <dt>
+                <span className="inline-block rounded border border-border bg-surface-hover px-1.5 py-0.5 font-mono text-xs text-fg">
+                  {row.keys}
+                </span>
               </dt>
-              <dd>{row.description}</dd>
+              <dd className="text-fg-muted">{row.description}</dd>
             </div>
           ))}
         </dl>

@@ -6,15 +6,9 @@ import {
   type Editor,
   type DefaultTab,
   type FileListMode,
+  THEMES,
+  resolveThemeId,
 } from "../settings";
-
-// Temporary — full picker rewrite lands in Task 6.1.
-const THEME_OPTIONS: { value: ThemeId; label: string }[] = [
-  { value: "auto", label: "Auto" },
-  { value: "midnight", label: "Midnight" },
-  { value: "paper", label: "Paper" },
-  { value: "aperture", label: "Aperture" },
-];
 
 const DEFAULT_TABS: { value: DefaultTab; label: string }[] = [
   { value: "last-used", label: "Last used" },
@@ -57,37 +51,30 @@ export function SettingsModal() {
   return (
     <div
       onClick={close}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-[420px] rounded-lg bg-white p-6 shadow-xl dark:bg-neutral-900"
+        className="w-[520px] rounded-lg border border-border bg-bg-elevated p-6 shadow-soft"
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Settings</h2>
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="font-display text-lg text-fg">Settings</h2>
           <button
             onClick={close}
-            className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+            className="text-fg-muted hover:text-fg"
             aria-label="Close settings"
           >
             ×
           </button>
         </div>
 
-        <div className="space-y-4">
-          <Row label="Theme">
-            <select
-              value={theme}
-              onChange={(e) => set({ theme: e.target.value as ThemeId })}
-              className="rounded border border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
-            >
-              {THEME_OPTIONS.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </Row>
+        <div className="space-y-5">
+          <div>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
+              Theme
+            </div>
+            <ThemePicker current={theme} onSelect={(id) => set({ theme: id })} />
+          </div>
 
           <Row label="Default tab">
             <select
@@ -95,7 +82,7 @@ export function SettingsModal() {
               onChange={(e) =>
                 set({ defaultTab: e.target.value as DefaultTab })
               }
-              className="rounded border border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+              className="rounded border border-border-strong bg-surface px-2 py-1 text-fg focus:border-accent focus:outline-none"
             >
               {DEFAULT_TABS.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -111,7 +98,7 @@ export function SettingsModal() {
               onChange={(e) =>
                 set({ fileListMode: e.target.value as FileListMode })
               }
-              className="rounded border border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+              className="rounded border border-border-strong bg-surface px-2 py-1 text-fg focus:border-accent focus:outline-none"
             >
               {LIST_MODES.map((m) => (
                 <option key={m.value} value={m.value}>
@@ -125,7 +112,7 @@ export function SettingsModal() {
             <select
               value={editor}
               onChange={(e) => set({ editor: e.target.value as Editor })}
-              className="rounded border border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
+              className="rounded border border-border-strong bg-surface px-2 py-1 text-fg focus:border-accent focus:outline-none"
             >
               {EDITORS.map((e2) => (
                 <option key={e2.value} value={e2.value}>
@@ -141,17 +128,18 @@ export function SettingsModal() {
                 type="checkbox"
                 checked={blameStickyOn}
                 onChange={(e) => set({ blameStickyOn: e.target.checked })}
+                className="accent-accent"
               />
-              <span className="text-sm text-neutral-600 dark:text-neutral-400">
+              <span className="text-sm text-fg-muted">
                 Carry blame toggle to next file
               </span>
             </label>
           </Row>
 
-          <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
+          <div className="border-t border-border pt-4">
             <button
               onClick={() => reset(["fileListWidthPx"])}
-              className="rounded border border-neutral-300 px-3 py-1 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+              className="rounded border border-border-strong px-3 py-1 text-sm text-fg-muted hover:border-accent hover:text-fg"
             >
               Reset pane widths
             </button>
@@ -171,8 +159,71 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm font-medium">{label}</span>
+      <span className="text-sm font-medium text-fg">{label}</span>
       {children}
+    </div>
+  );
+}
+
+interface ThemePickerProps {
+  current: ThemeId;
+  onSelect: (id: ThemeId) => void;
+}
+
+function ThemePicker({ current, onSelect }: ThemePickerProps) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {THEMES.map((t) => {
+        const isActive = current === t.id;
+        // For the Auto card, render the preview using whichever theme it
+        // would currently resolve to. We compute prefersDark on render —
+        // the picker is transient enough that re-renders are fine.
+        const prefersDark =
+          typeof window !== "undefined" &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const previewId = resolveThemeId(t.id, prefersDark);
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onSelect(t.id)}
+            className={
+              "group overflow-hidden rounded-lg border-2 text-left transition " +
+              (isActive
+                ? "border-accent shadow-soft"
+                : "border-border hover:border-border-strong")
+            }
+          >
+            <div data-theme={previewId} className="h-20 w-full bg-bg p-2">
+              <ThemePreview />
+            </div>
+            <div className="border-t border-border bg-surface p-3">
+              <div className="font-display text-sm text-fg">{t.label}</div>
+              <div className="text-xs text-fg-muted">{t.description}</div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Miniature render of diffscope's diff view: header bar + one add row +
+ * one del row + status dot. Rendered inside a `data-theme` container so
+ * its colors come from the target preset's tokens.
+ */
+function ThemePreview() {
+  return (
+    <div className="flex h-full flex-col gap-0.5">
+      <div className="flex h-2 items-center gap-1 rounded-sm bg-bg-elevated px-1">
+        <div className="h-1 w-1 rounded-full bg-accent" />
+        <div className="ml-auto h-0.5 w-4 rounded bg-border-strong" />
+      </div>
+      <div className="flex-1 rounded-sm border border-border bg-surface p-1">
+        <div className="mb-0.5 h-1 w-full rounded-sm bg-diff-add-bg" />
+        <div className="h-1 w-2/3 rounded-sm bg-diff-del-bg" />
+      </div>
     </div>
   );
 }

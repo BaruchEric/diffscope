@@ -3,6 +3,40 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { buildActions, type PaletteAction } from "../lib/actions";
 import { fuzzyFilter } from "../lib/fuzzy";
+import { useSettings, type ThemeId } from "../settings";
+
+const THEME_COMMANDS: PaletteAction[] = [
+  {
+    id: "theme.midnight",
+    label: "Theme: Midnight",
+    run: () => useSettings.getState().set({ theme: "midnight" }),
+  },
+  {
+    id: "theme.paper",
+    label: "Theme: Paper",
+    run: () => useSettings.getState().set({ theme: "paper" }),
+  },
+  {
+    id: "theme.aperture",
+    label: "Theme: Aperture",
+    run: () => useSettings.getState().set({ theme: "aperture" }),
+  },
+  {
+    id: "theme.auto",
+    label: "Theme: Auto (follow OS)",
+    run: () => useSettings.getState().set({ theme: "auto" }),
+  },
+  {
+    id: "theme.cycle",
+    label: "Theme: Cycle",
+    run: () => {
+      const order: ThemeId[] = ["auto", "midnight", "paper", "aperture"];
+      const current = useSettings.getState().theme;
+      const next = order[(order.indexOf(current) + 1) % order.length]!;
+      useSettings.getState().set({ theme: next });
+    },
+  },
+];
 
 type ItemKind =
   | { kind: "action"; action: PaletteAction }
@@ -29,7 +63,7 @@ export function CommandPalette() {
   const [selIdx, setSelIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const actions = useMemo(() => buildActions(), []);
+  const actions = useMemo(() => [...buildActions(), ...THEME_COMMANDS], []);
 
   const items = useMemo(() => {
     const filteredActions = fuzzyFilter(actions, query, (a) => a.label).map(
@@ -135,18 +169,18 @@ export function CommandPalette() {
   return (
     <div
       onClick={close}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-24 backdrop-blur-sm"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-[520px] overflow-hidden rounded-lg bg-white shadow-xl dark:bg-neutral-900"
+        className="w-[520px] overflow-hidden rounded-lg border border-border bg-bg-elevated shadow-soft"
       >
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Type an action, file, commit, branch, or stash…"
-          className="w-full border-b border-neutral-200 bg-transparent px-4 py-3 text-sm outline-none dark:border-neutral-800"
+          className="w-full border-b border-border bg-transparent px-4 py-3 text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none"
           autoFocus
         />
         <div className="max-h-[400px] overflow-auto">
@@ -160,7 +194,7 @@ export function CommandPalette() {
                 >
                   <span>{entry.action.label}</span>
                   {entry.action.hint && (
-                    <span className="ml-auto font-mono text-xs text-neutral-500">
+                    <span className="ml-auto font-mono text-xs text-fg-subtle">
                       {entry.action.hint}
                     </span>
                   )}
@@ -185,7 +219,7 @@ export function CommandPalette() {
             </Section>
           )}
           {flatList.length === 0 && (
-            <div className="px-4 py-6 text-center text-sm text-neutral-500">
+            <div className="px-4 py-6 text-center text-sm text-fg-subtle">
               No matches
             </div>
           )}
@@ -204,7 +238,7 @@ function Section({
 }) {
   return (
     <div>
-      <div className="bg-neutral-50 px-4 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-neutral-800/50">
+      <div className="bg-surface px-4 py-1 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
         {title}
       </div>
       {children}
@@ -227,10 +261,11 @@ function Row({
       className={
         "flex w-full items-center gap-2 px-4 py-2 text-left text-sm " +
         (selected
-          ? "bg-blue-100 dark:bg-blue-900/50"
-          : "hover:bg-neutral-100 dark:hover:bg-neutral-800")
+          ? "bg-accent text-accent-fg"
+          : "text-fg hover:bg-surface-hover")
       }
     >
+      {selected && <span className="text-accent-fg">›</span>}
       {children}
     </button>
   );
