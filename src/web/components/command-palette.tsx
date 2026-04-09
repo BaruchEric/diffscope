@@ -22,6 +22,11 @@ const THEME_COMMANDS: PaletteAction[] = [
     run: () => useSettings.getState().set({ theme: "aperture" }),
   },
   {
+    id: "theme.neon",
+    label: "Theme: Neon",
+    run: () => useSettings.getState().set({ theme: "neon" }),
+  },
+  {
     id: "theme.auto",
     label: "Theme: Auto (follow OS)",
     run: () => useSettings.getState().set({ theme: "auto" }),
@@ -30,7 +35,7 @@ const THEME_COMMANDS: PaletteAction[] = [
     id: "theme.cycle",
     label: "Theme: Cycle",
     run: () => {
-      const order: ThemeId[] = ["auto", "midnight", "paper", "aperture"];
+      const order: ThemeId[] = ["auto", "midnight", "paper", "aperture", "neon"];
       const current = useSettings.getState().theme;
       const next = order[(order.indexOf(current) + 1) % order.length]!;
       useSettings.getState().set({ theme: next });

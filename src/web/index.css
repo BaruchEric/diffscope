@@ -216,6 +216,47 @@ textarea:focus-visible,
   animation: none;
 }
 
+[data-theme="neon"] {
+  /* Cyberpunk / synthwave. Near-black backdrop, hot magenta accent,
+     electric cyan for hunks, lime additions, hot red removals. */
+  --bg:             7 7 13;
+  --bg-elevated:    13 11 21;
+  --surface:        18 16 28;
+  --surface-hover:  30 26 46;
+  --border:         36 32 58;
+  --border-strong:  58 52 88;
+
+  --fg:             245 240 255;
+  --fg-muted:       163 155 196;
+  --fg-subtle:      107 100 144;
+
+  --accent:         247 37 133;
+  --accent-fg:      255 255 255;
+
+  --diff-add-fg:    190 242 100;
+  --diff-add-sign:  132 204 22;
+  --diff-del-fg:    255 56 96;
+  --diff-del-sign:  239 68 68;
+
+  --hunk-fg:        0 245 212;
+
+  --accent-soft:    rgba(247, 37, 133, 0.18);
+  --diff-add-bg:    rgba(132, 204, 22, 0.14);
+  --diff-del-bg:    rgba(255, 56, 96, 0.15);
+  --hunk-bg:        rgba(0, 245, 212, 0.10);
+
+  --shadow-soft:    0 1px 2px rgba(0, 0, 0, 0.6), 0 8px 32px -10px rgba(247, 37, 133, 0.3);
+
+  --font-sans:      "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display:   "Audiowide", "JetBrains Mono", ui-monospace, monospace;
+  --font-mono:      "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --radius:         4px;
+  --radius-lg:      6px;
+
+  color-scheme: dark;
+}
+
 body {
   background-color: rgb(var(--bg));
   color: rgb(var(--fg));

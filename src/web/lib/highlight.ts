@@ -22,6 +22,7 @@ export function getHighlighter(): Promise<HighlighterCore> {
         import("@shikijs/themes/vitesse-dark"),
         import("@shikijs/themes/catppuccin-latte"),
         import("@shikijs/themes/rose-pine-dawn"),
+        import("@shikijs/themes/synthwave-84"),
       ],
       langs: [
         import("@shikijs/langs/typescript"),

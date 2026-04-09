@@ -3,7 +3,7 @@
 // One storage key, one setter, one loader.
 import { create } from "zustand";
 
-export type ThemeId = "auto" | "midnight" | "paper" | "aperture";
+export type ThemeId = "auto" | "midnight" | "paper" | "aperture" | "neon";
 export type Editor = "none" | "vscode" | "cursor" | "zed" | "idea" | "subl";
 export type FileListMode = "flat" | "tree";
 export type DefaultTab =
@@ -31,7 +31,7 @@ export const THEMES: ThemeMeta[] = [
     id: "auto",
     label: "Auto",
     mode: "dark",
-    accent: "#67e8f9",
+    accent: "#22d3ee",
     shikiTheme: "vitesse-dark",
     description: "Follows your OS",
   },
@@ -39,7 +39,7 @@ export const THEMES: ThemeMeta[] = [
     id: "midnight",
     label: "Midnight",
     mode: "dark",
-    accent: "#67e8f9",
+    accent: "#22d3ee",
     shikiTheme: "vitesse-dark",
     description: "Dark · refined editor",
   },
@@ -47,7 +47,7 @@ export const THEMES: ThemeMeta[] = [
     id: "paper",
     label: "Paper",
     mode: "light",
-    accent: "#c2410c",
+    accent: "#ea580c",
     shikiTheme: "catppuccin-latte",
     description: "Light · editorial",
   },
@@ -55,13 +55,27 @@ export const THEMES: ThemeMeta[] = [
     id: "aperture",
     label: "Aperture",
     mode: "light",
-    accent: "#b45309",
+    accent: "#d97706",
     shikiTheme: "rose-pine-dawn",
     description: "Light · premium",
   },
+  {
+    id: "neon",
+    label: "Neon",
+    mode: "dark",
+    accent: "#f72585",
+    shikiTheme: "synthwave-84",
+    description: "Dark · synthwave",
+  },
 ];
 
-const VALID_THEME_IDS = new Set<ThemeId>(["auto", "midnight", "paper", "aperture"]);
+const VALID_THEME_IDS = new Set<ThemeId>([
+  "auto",
+  "midnight",
+  "paper",
+  "aperture",
+  "neon",
+]);
 
 /**
  * Migrate legacy theme values from earlier versions to the new ThemeId set.
