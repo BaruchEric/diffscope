@@ -108,7 +108,7 @@ diffscope/
 }
 ```
 
-- [ ] **Step 2: Create `tsconfig.json`** (server-side)
+- [x] **Step 2: Create `tsconfig.json`** (server-side)
 
 ```json
 {
@@ -132,23 +132,23 @@ diffscope/
 }
 ```
 
-- [ ] **Step 3: Create empty directories with placeholders**
+- [x] **Step 3: Create empty directories with placeholders**
 
 ```bash
 mkdir -p src/server src/web src/shared test/fixtures test/helpers bin
 touch src/server/.gitkeep src/web/.gitkeep src/shared/.gitkeep test/.gitkeep
 ```
 
-- [ ] **Step 4: Install dependencies**
+- [x] **Step 4: Install dependencies**
 
 Run: `bun install`
 Expected: creates `bun.lock`, installs `@parcel/watcher` and `typescript`.
 
-- [ ] **Step 5: Typecheck (informational only — expected to fail)**
+- [x] **Step 5: Typecheck (informational only — expected to fail)**
 
 With zero `.ts` files in the project yet, `bun x tsc --noEmit` will fail with `TS18003: No inputs were found`. This is expected — Task 2 adds `src/shared/types.ts` which makes the typecheck pass. Skip this step and move on to commit.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add package.json tsconfig.json bun.lock src/ test/ bin/
