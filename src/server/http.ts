@@ -214,6 +214,46 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
       return json({ ok: true, root: found });
     }
 
+    if (pathname === "/api/blob") {
+      if (!repo) return json({ error: "no repo loaded" }, 400);
+      const path = url.searchParams.get("path");
+      const ref = url.searchParams.get("ref") ?? "HEAD"; // "HEAD" | "INDEX" | "WORKDIR"
+      if (!path) return json({ error: "path required" }, 400);
+      try {
+        let out: Buffer;
+        if (ref === "WORKDIR") {
+          const buf = await Bun.file(`${repo.cwd}/${path}`).arrayBuffer();
+          out = Buffer.from(buf);
+        } else {
+          const spec = ref === "HEAD" ? `HEAD:${path}` : `:${path}`;
+          const { spawnSync } = await import("node:child_process");
+          const r = spawnSync("git", ["show", spec], {
+            cwd: repo.cwd,
+            encoding: "buffer",
+          });
+          if (r.status !== 0)
+            return json({ error: r.stderr.toString() }, 500);
+          out = r.stdout;
+        }
+        const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+        const mime =
+          ext === "png"
+            ? "image/png"
+            : ext === "jpg" || ext === "jpeg"
+              ? "image/jpeg"
+              : ext === "gif"
+                ? "image/gif"
+                : ext === "webp"
+                  ? "image/webp"
+                  : ext === "svg"
+                    ? "image/svg+xml"
+                    : "application/octet-stream";
+        return new Response(out, { headers: { "content-type": mime } });
+      } catch (err) {
+        return errorResponse(err);
+      }
+    }
+
     // Static SPA fallback
     if (!pathname.startsWith("/api/")) {
       const fsPath =

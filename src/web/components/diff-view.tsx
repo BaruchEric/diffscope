@@ -22,6 +22,30 @@ export function DiffView({ diff, loading }: Props) {
     return <div className="p-4 text-neutral-500">Select a file to view its diff.</div>;
   }
 
+  const isImage = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(diff.path);
+  if (isImage) {
+    return (
+      <div className="grid h-full grid-cols-2 gap-4 p-6">
+        <figure className="flex flex-col items-center gap-2">
+          <figcaption className="text-xs text-neutral-500">Before (HEAD)</figcaption>
+          <img
+            src={`/api/blob?ref=HEAD&path=${encodeURIComponent(diff.path)}`}
+            className="max-h-full max-w-full border border-neutral-200 dark:border-neutral-800"
+            alt="before"
+          />
+        </figure>
+        <figure className="flex flex-col items-center gap-2">
+          <figcaption className="text-xs text-neutral-500">After (working tree)</figcaption>
+          <img
+            src={`/api/blob?ref=WORKDIR&path=${encodeURIComponent(diff.path)}`}
+            className="max-h-full max-w-full border border-neutral-200 dark:border-neutral-800"
+            alt="after"
+          />
+        </figure>
+      </div>
+    );
+  }
+
   if (diff.binary) {
     return (
       <div className="p-4 text-sm text-neutral-500">
