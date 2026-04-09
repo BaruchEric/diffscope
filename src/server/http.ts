@@ -1,7 +1,11 @@
 // src/server/http.ts
 import { serve, type Server } from "bun";
+import { readdirSync, statSync, existsSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { createRepo, GitError, type Repo } from "./repo";
 import { createEventHub, type EventHub } from "./events";
+import { addRecent, loadRecents, removeRecent } from "./recents";
 
 export interface HttpServerOptions {
   repoPath: string | null;
@@ -144,6 +148,70 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
           connection: "keep-alive",
         },
       });
+    }
+
+    if (pathname === "/api/browse") {
+      const rawPath = url.searchParams.get("path") || homedir();
+      const abs = isAbsolute(rawPath) ? resolve(rawPath) : resolve(homedir(), rawPath);
+      if (!existsSync(abs)) return json({ error: "not found", path: abs }, 404);
+      const entries: {
+        name: string;
+        path: string;
+        isGitRepo: boolean;
+      }[] = [];
+      try {
+        for (const name of readdirSync(abs).sort()) {
+          if (name.startsWith(".") && name !== ".git") continue;
+          const p = join(abs, name);
+          try {
+            const st = statSync(p);
+            if (!st.isDirectory()) continue;
+            entries.push({ name, path: p, isGitRepo: existsSync(join(p, ".git")) });
+          } catch {
+            // unreadable — skip
+          }
+        }
+      } catch (err) {
+        return errorResponse(err);
+      }
+      const parent = abs === "/" ? null : dirname(abs);
+      return json({ path: abs, entries, parent });
+    }
+
+    if (pathname === "/api/recents" && req.method === "GET") {
+      return json(loadRecents());
+    }
+
+    if (pathname === "/api/recents" && req.method === "DELETE") {
+      const path = url.searchParams.get("path");
+      if (!path) return json({ error: "path required" }, 400);
+      return json(removeRecent(path));
+    }
+
+    if (pathname === "/api/open" && req.method === "POST") {
+      const body = (await req.json().catch(() => ({}))) as { path?: string };
+      const input = body.path;
+      if (!input) return json({ error: "path required" }, 400);
+      // Walk upward to find .git
+      let current = resolve(input);
+      let found: string | null = null;
+      while (true) {
+        if (existsSync(join(current, ".git"))) {
+          found = current;
+          break;
+        }
+        const parent = dirname(current);
+        if (parent === current) break;
+        current = parent;
+      }
+      if (!found) return json({ error: "not a git repo" }, 400);
+      addRecent(found);
+      // Re-initialize the hub to point at the new repo.
+      if (hub) await hub.stop();
+      repo = createRepo(found);
+      hub = createEventHub(repo);
+      await hub.start();
+      return json({ ok: true, root: found });
     }
 
     // Static SPA fallback
