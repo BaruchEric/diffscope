@@ -1,26 +1,14 @@
-import { useEffect, useState } from "react";
-import type { CommitDetail, Stash } from "@shared/types";
-import { api } from "../lib/api";
 import { DiffView } from "../components/diff-view";
+import { useCommitDetail } from "../lib/use-commit-detail";
 import { useStore } from "../store";
 
 export function StashesTab() {
   const stashes = useStore((s) => s.stashes);
-  const [focused, setFocused] = useState<Stash | null>(null);
-  const [detail, setDetail] = useState<CommitDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!focused) {
-      setDetail(null);
-      return;
-    }
-    setLoading(true);
-    void api
-      .commit(focused.sha)
-      .then(setDetail)
-      .finally(() => setLoading(false));
-  }, [focused]);
+  const focusedIndex = useStore((s) => s.focusedStashIndex);
+  const focusStash = useStore((s) => s.focusStash);
+  const focused =
+    focusedIndex !== null ? stashes.find((s) => s.index === focusedIndex) ?? null : null;
+  const { detail, loading } = useCommitDetail(focused?.sha ?? null);
 
   return (
     <div className="grid h-full grid-cols-[360px_1fr]">
@@ -31,9 +19,9 @@ export function StashesTab() {
         {stashes.map((s) => (
           <button
             key={s.index}
-            onClick={() => setFocused(s)}
+            onClick={() => focusStash(s.index)}
             className={`block w-full truncate px-3 py-2 text-left text-sm ${
-              focused?.index === s.index
+              focusedIndex === s.index
                 ? "bg-blue-100 dark:bg-blue-900/40"
                 : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
             }`}

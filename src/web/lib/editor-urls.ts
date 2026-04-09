@@ -8,7 +8,9 @@ export function editorUrl(
   col: number,
 ): string | null {
   if (editor === "none") return null;
-  const encoded = absPath.split("/").map(encodeURIComponent).join("/");
+  // encodeURI preserves the leading slash and path separators while still
+  // escaping spaces and other unsafe characters.
+  const encoded = encodeURI(absPath);
   switch (editor) {
     case "vscode":
       return `vscode://file${encoded}:${line}:${col}`;
@@ -17,9 +19,9 @@ export function editorUrl(
     case "zed":
       return `zed://file${encoded}:${line}:${col}`;
     case "idea":
-      return `idea://open?file=${encoded}&line=${line}`;
+      return `idea://open?file=${encoded}&line=${line}&column=${col}`;
     case "subl":
-      return `subl://open?url=file://${encoded}&line=${line}`;
+      return `subl://open?url=file://${encoded}&line=${line}&column=${col}`;
     default:
       return null;
   }

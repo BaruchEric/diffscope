@@ -3,14 +3,38 @@ import { serve, type Server } from "bun";
 import { readdirSync, statSync, existsSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
-import { createRepo, GitError, type Repo } from "./repo";
+import { createRepo, findRepoRoot, GitError, type Repo } from "./repo";
 import { createEventHub, type EventHub } from "./events";
 import { addRecent, loadRecents, removeRecent } from "./recents";
 import {
   blameFile,
   getCachedBlame,
+  invalidateBlameCache,
   setCachedBlame,
 } from "./blame";
+
+const MIME_BY_EXT: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+  bmp: "image/bmp",
+  ico: "image/x-icon",
+};
+
+function mimeForPath(path: string): string {
+  const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+  return MIME_BY_EXT[ext] ?? "application/octet-stream";
+}
+
+function parseIntParam(raw: string | null, fallback: number, min: number, max: number): number {
+  if (raw === null) return fallback;
+  const n = parseInt(raw, 10);
+  if (Number.isNaN(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
 
 export interface HttpServerOptions {
   repoPath: string | null;
@@ -20,7 +44,6 @@ export interface HttpServerOptions {
 
 export interface StartedServer {
   server: Server<unknown>;
-  hub: EventHub | null;
   stop(): Promise<void>;
 }
 
@@ -89,15 +112,8 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
         return json({ error: "invalid path" }, 400);
       }
       try {
-        const { spawnSync } = await import("node:child_process");
-        const headR = spawnSync("git", ["rev-parse", "HEAD"], {
-          cwd: repo.cwd,
-          encoding: "utf8",
-        });
-        if (headR.status !== 0) {
-          return json({ error: "no HEAD" }, 404);
-        }
-        const headSha = headR.stdout.trim();
+        const headSha = await repo.getHeadSha();
+        if (!headSha) return json({ error: "no HEAD" }, 404);
         const cached = getCachedBlame(path, headSha);
         if (cached) return json(cached);
         const lines = await blameFile(repo.cwd, path);
@@ -113,8 +129,8 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
 
     if (pathname === "/api/log") {
       if (!repo) return json({ error: "no repo loaded" }, 400);
-      const limit = parseInt(url.searchParams.get("limit") ?? "50", 10);
-      const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+      const limit = parseIntParam(url.searchParams.get("limit"), 50, 1, 500);
+      const offset = parseIntParam(url.searchParams.get("offset"), 0, 0, 100_000);
       try {
         return json(await repo.getLog({ limit, offset }));
       } catch (err) {
@@ -228,25 +244,25 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
       const body = (await req.json().catch(() => ({}))) as { path?: string };
       const input = body.path;
       if (!input) return json({ error: "path required" }, 400);
-      // Walk upward to find .git
-      let current = resolve(input);
-      let found: string | null = null;
-      while (true) {
-        if (existsSync(join(current, ".git"))) {
-          found = current;
-          break;
-        }
-        const parent = dirname(current);
-        if (parent === current) break;
-        current = parent;
-      }
+      const found = findRepoRoot(input);
       if (!found) return json({ error: "not a git repo" }, 400);
       addRecent(found);
-      // Re-initialize the hub to point at the new repo.
-      if (hub) await hub.stop();
-      repo = createRepo(found);
-      hub = createEventHub(repo);
-      await hub.start();
+
+      // Build the new hub first, then swap atomically and only stop the old
+      // one on success — otherwise a failure mid-swap leaves the server in
+      // a half-initialized state with hub = null.
+      const nextRepo = createRepo(found);
+      const nextHub = createEventHub(nextRepo);
+      try {
+        await nextHub.start();
+      } catch (err) {
+        return errorResponse(err);
+      }
+      const prevHub = hub;
+      repo = nextRepo;
+      hub = nextHub;
+      invalidateBlameCache();
+      if (prevHub) await prevHub.stop();
       return json({ ok: true, root: found });
     }
 
@@ -260,31 +276,14 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
         if (ref === "WORKDIR") {
           const buf = await Bun.file(`${repo.cwd}/${path}`).arrayBuffer();
           out = Buffer.from(buf);
+        } else if (ref === "HEAD" || ref === "INDEX") {
+          out = await repo.showBlob(ref, path);
         } else {
-          const spec = ref === "HEAD" ? `HEAD:${path}` : `:${path}`;
-          const { spawnSync } = await import("node:child_process");
-          const r = spawnSync("git", ["show", spec], {
-            cwd: repo.cwd,
-            encoding: "buffer",
-          });
-          if (r.status !== 0)
-            return json({ error: r.stderr.toString() }, 500);
-          out = r.stdout;
+          return json({ error: `invalid ref: ${ref}` }, 400);
         }
-        const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
-        const mime =
-          ext === "png"
-            ? "image/png"
-            : ext === "jpg" || ext === "jpeg"
-              ? "image/jpeg"
-              : ext === "gif"
-                ? "image/gif"
-                : ext === "webp"
-                  ? "image/webp"
-                  : ext === "svg"
-                    ? "image/svg+xml"
-                    : "application/octet-stream";
-        return new Response(out, { headers: { "content-type": mime } });
+        return new Response(new Uint8Array(out), {
+          headers: { "content-type": mimeForPath(path) },
+        });
       } catch (err) {
         return errorResponse(err);
       }
@@ -326,7 +325,6 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
 
   return {
     server,
-    hub,
     async stop() {
       if (hub) await hub.stop();
       server.stop(true);

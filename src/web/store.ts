@@ -22,6 +22,13 @@ export interface Toast {
   message: string;
 }
 
+// Monotonic toast id counter — avoids Date.now() collisions when multiple
+// toasts land in the same millisecond.
+let nextToastId = 1;
+function makeToast(kind: Toast["kind"], message: string): Toast {
+  return { id: nextToastId++, kind, message };
+}
+
 interface StoreState {
   repo: RepoInfo | null;
   repoLoaded: boolean;
@@ -31,6 +38,9 @@ interface StoreState {
   status: FileStatus[];
   focusedPath: string | null;
   focusedDiff: ParsedDiff | null;
+  /** Monotonic counter — every focusFile call increments this; stale
+   *  diff resolves are detected by comparing against the latest value. */
+  focusedPathToken: number;
   log: Commit[];
   focusedCommitSha: string | null;
   branches: Branch[];
@@ -61,6 +71,7 @@ interface StoreState {
   focusCommit: (sha: string) => Promise<void>;
   focusBranch: (name: string) => void;
   focusStash: (index: number) => void;
+  loadLog: () => Promise<void>;
   initialize: () => Promise<void>;
   teardown: () => void;
 }
@@ -74,6 +85,7 @@ export const useStore = create<StoreState>((set, get) => ({
   status: [],
   focusedPath: null,
   focusedDiff: null,
+  focusedPathToken: 0,
   log: [],
   focusedCommitSha: null,
   branches: [],
@@ -107,7 +119,8 @@ export const useStore = create<StoreState>((set, get) => ({
   togglePaused: () => set((s) => ({ paused: !s.paused })),
 
   focusFile: async (path) => {
-    set({ focusedPath: path, focusedDiff: null });
+    const token = get().focusedPathToken + 1;
+    set({ focusedPath: path, focusedDiff: null, focusedPathToken: token });
     const sticky = useSettings.getState().blameStickyOn;
     if (sticky) {
       const on = new Set(get().blameOnFor);
@@ -116,9 +129,12 @@ export const useStore = create<StoreState>((set, get) => ({
       void get().ensureBlameLoaded(path);
     }
     const entry = get().status.find((f) => f.path === path);
-    const staged = entry?.staged !== null && entry?.unstaged === null;
+    // Prefer the unstaged diff when the working tree has changes;
+    // fall back to the staged diff only when nothing is unstaged.
+    const staged = entry != null && entry.staged !== null && entry.unstaged === null;
     const diff = await api.diff(path, staged).catch(() => null);
-    if (get().focusedPath === path) set({ focusedDiff: diff });
+    // Only commit the fetched diff if no newer focusFile call has started.
+    if (get().focusedPathToken === token) set({ focusedDiff: diff });
   },
 
   toggleBlame: (path) => {
@@ -148,10 +164,7 @@ export const useStore = create<StoreState>((set, get) => ({
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set({
-        toasts: [
-          ...get().toasts,
-          { id: Date.now(), kind: "warning", message: `Blame failed: ${msg}` },
-        ],
+        toasts: [...get().toasts, makeToast("warning", `Blame failed: ${msg}`)],
       });
       // Turn blame off for this file so we don't spin.
       const on = new Set(get().blameOnFor);
@@ -171,6 +184,11 @@ export const useStore = create<StoreState>((set, get) => ({
 
   focusBranch: (name) => set({ focusedBranch: name }),
   focusStash: (index) => set({ focusedStashIndex: index }),
+
+  loadLog: async () => {
+    const rows = await api.log(200, 0).catch(() => [] as Commit[]);
+    set({ log: rows });
+  },
 
   initialize: async () => {
     const s = getSettings();
@@ -203,6 +221,7 @@ export const useStore = create<StoreState>((set, get) => ({
     const sse = openSseStream(
       (event) => handleEvent(event, set, get),
       () => set({ watcherDown: true }),
+      () => set({ watcherDown: false }),
     );
     set({ sse });
   },
@@ -212,6 +231,20 @@ export const useStore = create<StoreState>((set, get) => ({
     set({ sse: null });
   },
 }));
+
+function fileStatusEqual(a: FileStatus, b: FileStatus): boolean {
+  return (
+    a.path === b.path &&
+    a.oldPath === b.oldPath &&
+    a.staged === b.staged &&
+    a.unstaged === b.unstaged &&
+    a.isUntracked === b.isUntracked &&
+    a.isImage === b.isImage &&
+    a.isBinary === b.isBinary &&
+    a.added === b.added &&
+    a.deleted === b.deleted
+  );
+}
 
 function handleEvent(
   event: SseEvent,
@@ -226,10 +259,17 @@ function handleEvent(
     case "file-updated": {
       const existing = get().status;
       const idx = existing.findIndex((f) => f.path === event.path);
-      const next = [...existing];
-      if (idx >= 0) next[idx] = event.status;
-      else next.push(event.status);
-      set({ status: next });
+      // Skip rebuilding `status` if the entry is shape-equal to the one
+      // we already hold. The server already filters duplicates, but its
+      // snapshot can lag behind ours after rapid resubscribes — this
+      // keeps every status subscriber from re-rendering on a no-op.
+      const same = idx >= 0 && fileStatusEqual(existing[idx]!, event.status);
+      if (!same) {
+        const next = [...existing];
+        if (idx >= 0) next[idx] = event.status;
+        else next.push(event.status);
+        set({ status: next });
+      }
       if (get().focusedPath === event.path && event.diff) {
         set({ focusedDiff: event.diff });
       }
@@ -243,11 +283,14 @@ function handleEvent(
       break;
     }
     case "head-changed":
+      // Drop the blame cache (keyed by HEAD sha) but keep the user's blame
+      // toggles — otherwise committing on one file turns off blame for
+      // every other file the user had opened it on.
       set({
         status: event.status,
         branches: event.branches,
         blameCache: new Map(),
-        blameOnFor: new Set(),
+        repo: get().repo ? { ...get().repo!, headSha: event.headSha } : get().repo,
       });
       break;
     case "refs-changed":
@@ -265,18 +308,12 @@ function handleEvent(
     case "repo-error":
       set({
         error: event.reason,
-        toasts: [
-          ...get().toasts,
-          { id: Date.now(), kind: "error", message: event.reason },
-        ],
+        toasts: [...get().toasts, makeToast("error", event.reason)],
       });
       break;
     case "warning":
       set({
-        toasts: [
-          ...get().toasts,
-          { id: Date.now() + Math.random(), kind: "warning", message: event.message },
-        ],
+        toasts: [...get().toasts, makeToast("warning", event.message)],
       });
       break;
   }

@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BlameLine, DiffLine, ParsedDiff } from "@shared/types";
 import { getHighlighter, langFromPath } from "../lib/highlight";
+import { escapeHtml } from "../lib/html";
 import { useStore } from "../store";
+import { useSettings } from "../settings";
 import { BlameGutter } from "./blame-gutter";
 import {
   OpenInEditorLineIcon,
@@ -82,8 +84,11 @@ export function DiffView({ diff, loading }: Props) {
         </span>
         <DiffViewHeaderControls diff={diff} />
       </div>
-      {diff.hunks.map((h, i) => (
-        <div key={i} className="border-b border-neutral-100 last:border-b-0 dark:border-neutral-900">
+      {diff.hunks.map((h) => (
+        <div
+          key={`${h.oldStart}-${h.newStart}-${h.header}`}
+          className="border-b border-neutral-100 last:border-b-0 dark:border-neutral-900"
+        >
           <div className="bg-cyan-50 px-3 py-0.5 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300">
             {h.header}
           </div>
@@ -143,7 +148,22 @@ interface SplitRow {
 }
 
 function SplitHunk({ path, lines }: { path: string; lines: DiffLine[] }) {
-  // Pair deletions with additions greedily: emit left/right rows.
+  // Memoize the row pairing so re-renders (e.g. from unrelated store updates)
+  // don't rebuild `rows` and hand new array identities to `SplitColumn`,
+  // which in turn would fire `useHighlightedTexts` effects unnecessarily.
+  const rows = useMemo(() => pairRows(lines), [lines]);
+  const leftEntries = useMemo(() => rows.map((r) => r.left), [rows]);
+  const rightEntries = useMemo(() => rows.map((r) => r.right), [rows]);
+
+  return (
+    <div className="grid grid-cols-2 divide-x divide-neutral-200 dark:divide-neutral-800">
+      <SplitColumn path={path} entries={leftEntries} side="left" />
+      <SplitColumn path={path} entries={rightEntries} side="right" />
+    </div>
+  );
+}
+
+function pairRows(lines: DiffLine[]): SplitRow[] {
   const rows: SplitRow[] = [];
   let i = 0;
   while (i < lines.length) {
@@ -172,13 +192,7 @@ function SplitHunk({ path, lines }: { path: string; lines: DiffLine[] }) {
       i++;
     }
   }
-
-  return (
-    <div className="grid grid-cols-2 divide-x divide-neutral-200 dark:divide-neutral-800">
-      <SplitColumn path={path} entries={rows.map((r) => r.left)} side="left" />
-      <SplitColumn path={path} entries={rows.map((r) => r.right)} side="right" />
-    </div>
-  );
+  return rows;
 }
 
 function SplitColumn({
@@ -190,7 +204,7 @@ function SplitColumn({
   entries: (DiffLine | null)[];
   side: "left" | "right";
 }) {
-  const texts = entries.map((e) => e?.text ?? "");
+  const texts = useMemo(() => entries.map((e) => e?.text ?? ""), [entries]);
   const highlighted = useHighlightedTexts(path, texts);
   return (
     <table className="w-max min-w-full border-collapse">
@@ -237,7 +251,7 @@ function HunkLines({
   blame: BlameLine[] | undefined;
   absPath: string | null;
 }) {
-  const texts = lines.map((l) => l.text);
+  const texts = useMemo(() => lines.map((l) => l.text), [lines]);
   const highlighted = useHighlightedTexts(path, texts);
   return (
     <table className="w-max min-w-full border-collapse">
@@ -283,23 +297,32 @@ function HunkLines({
   );
 }
 
+function resolveShikiTheme(setting: "system" | "light" | "dark"): "github-dark" | "github-light" {
+  if (setting === "dark") return "github-dark";
+  if (setting === "light") return "github-light";
+  const isDark =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  return isDark ? "github-dark" : "github-light";
+}
+
 /**
  * Async-highlight an array of text lines via Shiki, returning HTML strings or
- * null while loading. Used by both unified and split diff renderers.
+ * null while loading. Used by both unified and split diff renderers. Reacts
+ * to the user's theme setting so toggling light/dark re-highlights.
  */
 function useHighlightedTexts(path: string, texts: string[]): string[] | null {
   const [highlighted, setHighlighted] = useState<string[] | null>(null);
+  const themeSetting = useSettings((s) => s.theme);
   // Cheap stable key — texts arrays are line-by-line, joining with NUL is
   // cheap and avoids re-running the effect on every parent render.
-  const key = texts.join("\x00");
+  const key = useMemo(() => texts.join("\x00"), [texts]);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       const highlighter = await getHighlighter();
       const lang = langFromPath(path);
-      const isDark =
-        window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-      const theme = isDark ? "github-dark" : "github-light";
+      const theme = resolveShikiTheme(themeSetting);
       const html = texts.map((text) => {
         try {
           return highlighter.codeToHtml(text, { lang, theme });
@@ -313,7 +336,7 @@ function useHighlightedTexts(path: string, texts: string[]): string[] | null {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, key]);
+  }, [path, key, themeSetting]);
   return highlighted;
 }
 
@@ -366,9 +389,3 @@ function ImagePlaceholder({ label }: { label: string }) {
   );
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}

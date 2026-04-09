@@ -58,5 +58,5 @@ export function langFromPath(path: string): string {
     rs: "rust",
     go: "go",
   };
-  return map[ext] ?? "text";
+  return map[ext] ?? "plaintext";
 }

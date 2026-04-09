@@ -1,39 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Commit, CommitDetail } from "@shared/types";
-import { api } from "../lib/api";
+import { fuzzyFilter } from "../lib/fuzzy";
+import { useCommitDetail } from "../lib/use-commit-detail";
 import { DiffView } from "../components/diff-view";
+import { useStore } from "../store";
 
 export function HistoryTab() {
-  const [commits, setCommits] = useState<Commit[]>([]);
-  const [focused, setFocused] = useState<string | null>(null);
-  const [detail, setDetail] = useState<CommitDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const log = useStore((s) => s.log);
+  const loadLog = useStore((s) => s.loadLog);
+  const focused = useStore((s) => s.focusedCommitSha);
+  const focusCommit = useStore((s) => s.focusCommit);
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    void api.log(200, 0).then(setCommits);
-  }, []);
+    void loadLog();
+  }, [loadLog]);
 
-  const filtered = useMemo(() => {
-    if (!query) return commits;
-    const q = query.toLowerCase();
-    return commits.filter(
-      (c) =>
-        c.subject.toLowerCase().includes(q) ||
-        c.body.toLowerCase().includes(q) ||
-        c.author.toLowerCase().includes(q) ||
-        c.shortSha.startsWith(q),
-    );
-  }, [commits, query]);
+  const filtered = useMemo(
+    () =>
+      fuzzyFilter(
+        log,
+        query,
+        (c) => `${c.shortSha} ${c.subject} ${c.author} ${c.body}`,
+      ),
+    [log, query],
+  );
 
-  useEffect(() => {
-    if (!focused) return;
-    setLoading(true);
-    void api
-      .commit(focused)
-      .then((d) => setDetail(d))
-      .finally(() => setLoading(false));
-  }, [focused]);
+  const { detail, loading } = useCommitDetail(focused);
 
   return (
     <div className="grid h-full grid-cols-[380px_1fr]">
@@ -53,7 +45,7 @@ export function HistoryTab() {
           {filtered.map((c) => (
             <button
               key={c.sha}
-              onClick={() => setFocused(c.sha)}
+              onClick={() => void focusCommit(c.sha)}
               className={`block w-full truncate px-3 py-2 text-left text-sm ${
                 focused === c.sha
                   ? "bg-blue-100 dark:bg-blue-900/40"

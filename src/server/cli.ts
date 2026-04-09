@@ -1,18 +1,9 @@
 // src/server/cli.ts
 import { existsSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { startHttpServer } from "./http";
-
-function findRepoRoot(start: string): string | null {
-  let current = resolve(start);
-  while (true) {
-    if (existsSync(join(current, ".git"))) return current;
-    const parent = dirname(current);
-    if (parent === current) return null;
-    current = parent;
-  }
-}
+import { findRepoRoot } from "./repo";
 
 async function pickPort(): Promise<number> {
   // Bun.serve with port: 0 → random free port; probe via a short-lived server

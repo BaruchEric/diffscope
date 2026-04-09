@@ -2,23 +2,11 @@ import { useEffect, useState } from "react";
 import type { BrowseResult } from "@shared/types";
 import { api } from "../lib/api";
 import { useStore } from "../store";
+import { relativeTime } from "../lib/relative-time";
 
 interface Recent {
   path: string;
   lastOpenedAt: string;
-}
-
-function relativeTime(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const diffSec = Math.round((now - then) / 1000);
-  if (diffSec < 60) return "just now";
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-  if (diffSec < 86400 * 7) return `${Math.floor(diffSec / 86400)}d ago`;
-  if (diffSec < 86400 * 30) return `${Math.floor(diffSec / 86400 / 7)}w ago`;
-  return new Date(iso).toLocaleDateString();
 }
 
 function Breadcrumb({
@@ -66,8 +54,16 @@ export function Picker() {
   const initialize = useStore((s) => s.initialize);
 
   useEffect(() => {
-    void api.recents().then(setRecents);
-    void api.browse().then(setBrowse);
+    let cancelled = false;
+    void api.recents().then((r) => {
+      if (!cancelled) setRecents(r);
+    });
+    void api.browse().then((b) => {
+      if (!cancelled) setBrowse(b);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const open = async (path: string) => {

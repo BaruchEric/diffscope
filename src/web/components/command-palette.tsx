@@ -82,18 +82,22 @@ export function CommandPalette() {
     setSelIdx(0);
   }, [query, tab]);
 
+  // Keep the latest list / selection / activate fn in refs so the keydown
+  // listener stays stable across arrow-key presses. Without this, each
+  // selIdx change would tear down and re-attach the listener.
+  const flatListRef = useRef(flatList);
+  flatListRef.current = flatList;
+  const selIdxRef = useRef(selIdx);
+  selIdxRef.current = selIdx;
+
   useEffect(() => {
     if (!open) return;
+    // Esc is handled by the central shortcuts chain. This listener only owns
+    // ArrowUp/ArrowDown/Enter while the palette is open.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        close();
-        return;
-      }
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelIdx((i) => Math.min(i + 1, flatList.length - 1));
+        setSelIdx((i) => Math.min(i + 1, flatListRef.current.length - 1));
         return;
       }
       if (e.key === "ArrowUp") {
@@ -103,16 +107,15 @@ export function CommandPalette() {
       }
       if (e.key === "Enter") {
         e.preventDefault();
-        const chosen = flatList[selIdx];
+        const chosen = flatListRef.current[selIdxRef.current];
         if (!chosen) return;
-        activate(chosen);
+        activateRef.current(chosen);
       }
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () =>
       window.removeEventListener("keydown", onKey, { capture: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, flatList, selIdx, close]);
+  }, [open]);
 
   const activate = (item: ItemKind) => {
     if (item.kind === "action") item.action.run();
@@ -124,6 +127,8 @@ export function CommandPalette() {
     else if (item.kind === "stash") focusStash(item.index);
     close();
   };
+  const activateRef = useRef(activate);
+  activateRef.current = activate;
 
   if (!open) return null;
 
@@ -147,23 +152,20 @@ export function CommandPalette() {
         <div className="max-h-[400px] overflow-auto">
           {items.actions.length > 0 && (
             <Section title="Actions">
-              {items.actions.map((entry, i) => {
-                const gi = i;
-                return (
-                  <Row
-                    key={entry.action.id}
-                    selected={gi === selIdx}
-                    onClick={() => activate(entry)}
-                  >
-                    <span>{entry.action.label}</span>
-                    {entry.action.hint && (
-                      <span className="ml-auto font-mono text-xs text-neutral-500">
-                        {entry.action.hint}
-                      </span>
-                    )}
-                  </Row>
-                );
-              })}
+              {items.actions.map((entry, i) => (
+                <Row
+                  key={entry.action.id}
+                  selected={i === selIdx}
+                  onClick={() => activate(entry)}
+                >
+                  <span>{entry.action.label}</span>
+                  {entry.action.hint && (
+                    <span className="ml-auto font-mono text-xs text-neutral-500">
+                      {entry.action.hint}
+                    </span>
+                  )}
+                </Row>
+              ))}
             </Section>
           )}
           {items.contextual.length > 0 && (

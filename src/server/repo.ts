@@ -1,5 +1,7 @@
-import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { parseDiff, parseLog, parseStatus } from "./parser";
+import { runGit, runGitBuffer } from "./git";
 import type {
   Branch,
   Commit,
@@ -9,45 +11,37 @@ import type {
   Stash,
 } from "../shared/types";
 
+export { GitError } from "./git";
+
 const LOG_FORMAT = "%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%D%x00%s%x00%b%x1e";
 const BRANCH_FORMAT =
   "%(refname)%00%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:track)%00%(objectname)%00%(contents:subject)";
 
-export class GitError extends Error {
-  constructor(
-    public code: number,
-    public stderr: string,
-    public args: readonly string[],
-  ) {
-    super(`git ${args.join(" ")} failed (${code}): ${stderr}`);
-    this.name = "GitError";
+/**
+ * Walk upward from `start` looking for `.git`. Returns the containing
+ * directory or null if not inside a repo.
+ */
+export function findRepoRoot(start: string): string | null {
+  let current = resolve(start);
+  while (true) {
+    if (existsSync(join(current, ".git"))) return current;
+    const parent = dirname(current);
+    if (parent === current) return null;
+    current = parent;
   }
-}
-
-async function runGit(cwd: string, args: readonly string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("git", args as string[], { cwd });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (d) => (stdout += d.toString("utf8")));
-    child.stderr.on("data", (d) => (stderr += d.toString("utf8")));
-    child.on("error", (err) => reject(err));
-    child.on("close", (code) => {
-      if (code === 0) resolve(stdout);
-      else reject(new GitError(code ?? -1, stderr, args));
-    });
-  });
 }
 
 export interface Repo {
   readonly cwd: string;
   getRepoRoot(): Promise<string>;
+  getHeadSha(): Promise<string | null>;
   getStatus(): Promise<FileStatus[]>;
   getFileDiff(path: string, opts: { staged: boolean }): Promise<ParsedDiff | null>;
   getLog(opts: { limit: number; offset: number }): Promise<Commit[]>;
   getCommit(sha: string): Promise<CommitDetail>;
   getBranches(): Promise<Branch[]>;
   getStashes(): Promise<Stash[]>;
+  showBlob(ref: "HEAD" | "INDEX", path: string): Promise<Buffer>;
 }
 
 export function createRepo(cwd: string): Repo {
@@ -56,6 +50,19 @@ export function createRepo(cwd: string): Repo {
     async getRepoRoot() {
       const out = await runGit(cwd, ["rev-parse", "--show-toplevel"]);
       return out.trim();
+    },
+    async getHeadSha() {
+      try {
+        const out = await runGit(cwd, ["rev-parse", "HEAD"]);
+        const sha = out.trim();
+        return sha.length > 0 ? sha : null;
+      } catch {
+        return null;
+      }
+    },
+    async showBlob(ref, path) {
+      const spec = ref === "HEAD" ? `HEAD:${path}` : `:${path}`;
+      return runGitBuffer(cwd, ["show", spec]);
     },
     async getStatus() {
       const [statusOut, numstatOut] = await Promise.all([

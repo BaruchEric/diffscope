@@ -37,6 +37,17 @@ const DEFAULTS: Settings = {
   diffMode: "unified",
 };
 
+// Explicit allowlist of persisted keys. Using this instead of destructuring
+// the store means adding a new store method (or renaming an existing one)
+// can't accidentally leak non-data fields into localStorage.
+const SETTINGS_KEYS = Object.keys(DEFAULTS) as (keyof Settings)[];
+
+function pickSettings(state: SettingsStore): Settings {
+  const out: Record<string, unknown> = {};
+  for (const k of SETTINGS_KEYS) out[k] = state[k];
+  return out as unknown as Settings;
+}
+
 interface SettingsStore extends Settings {
   loaded: boolean;
   load(): void;
@@ -85,9 +96,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   },
 
   set(partial) {
-    const { loaded: _l, load: _load, set: _set, reset: _reset, ...current } =
-      get();
-    const next: Settings = { ...current, ...partial };
+    const next: Settings = { ...pickSettings(get()), ...partial };
     writeThrough(next);
     set(partial);
   },
@@ -101,7 +110,5 @@ export const useSettings = create<SettingsStore>((set, get) => ({
 
 // Non-hook accessor for use outside React components (shortcuts, event handlers).
 export function getSettings(): Settings {
-  const s = useSettings.getState();
-  const { loaded: _l, load: _load, set: _set, reset: _reset, ...rest } = s;
-  return rest;
+  return pickSettings(useSettings.getState());
 }

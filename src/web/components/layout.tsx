@@ -15,18 +15,20 @@ export function Layout({ children }: { children: ReactNode }) {
   const paused = useStore((s) => s.paused);
   const togglePaused = useStore((s) => s.togglePaused);
   const watcherDown = useStore((s) => s.watcherDown);
-  const repo = useStore((s) => s.repo);
+  const repoRoot = useStore((s) => s.repo?.root ?? null);
   const diffMode = useStore((s) => s.diffMode);
   const setDiffMode = useStore((s) => s.setDiffMode);
-  const status = useStore((s) => s.status);
-  const branches = useStore((s) => s.branches);
-  const stashes = useStore((s) => s.stashes);
+  // Subscribe to scalar lengths instead of whole arrays so SSE ticks that
+  // don't actually change counts don't re-render the header.
+  const statusLen = useStore((s) => s.status.length);
+  const branchesLen = useStore((s) => s.branches.length);
+  const stashesLen = useStore((s) => s.stashes.length);
 
   const counts: Record<Tab, number> = {
-    "working-tree": status.length,
+    "working-tree": statusLen,
     history: 0,
-    branches: branches.length,
-    stashes: stashes.length,
+    branches: branchesLen,
+    stashes: stashesLen,
   };
 
   return (
@@ -34,8 +36,8 @@ export function Layout({ children }: { children: ReactNode }) {
       <header className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-4 py-2 dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex items-center gap-4">
           <span className="font-semibold">diffscope</span>
-          {repo?.root && (
-            <span className="text-sm text-neutral-500">{shortenPath(repo.root)}</span>
+          {repoRoot && (
+            <span className="text-sm text-neutral-500">{shortenPath(repoRoot)}</span>
           )}
         </div>
         <nav className="flex gap-1">

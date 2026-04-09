@@ -1,6 +1,7 @@
 // src/web/components/blame-gutter.tsx
 import type { BlameLine } from "@shared/types";
 import { useStore } from "../store";
+import { relativeTime } from "../lib/relative-time";
 
 export function BlameGutter({
   blame,
@@ -16,7 +17,7 @@ export function BlameGutter({
   if (!entry) {
     return <span className="w-28 shrink-0 text-right text-neutral-400">—</span>;
   }
-  const rel = formatRelative(entry.authorTimeIso);
+  const rel = relativeTime(entry.authorTimeIso, "short");
   const initials = entry.author
     .split(" ")
     .map((p) => p[0])
@@ -37,20 +38,4 @@ export function BlameGutter({
       <span>{rel}</span>
     </button>
   );
-}
-
-function formatRelative(iso: string): string {
-  const then = new Date(iso).getTime();
-  const diff = Date.now() - then;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "now";
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo`;
-  const years = Math.floor(days / 365);
-  return `${years}y`;
 }

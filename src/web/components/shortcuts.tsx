@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useSettings } from "../settings";
-import { visibleFilePathsForTree } from "./file-tree";
+import { allDirPathsForTree, visibleFilePathsForTree } from "./file-tree";
 
 const TABS_ORDER = ["working-tree", "history", "branches", "stashes"] as const;
 
@@ -33,6 +33,10 @@ const G_LEADER_TIMEOUT_MS = 1500;
 export function Shortcuts() {
   const [helpOpen, setHelpOpen] = useState(false);
   const gLeaderRef = useRef<number | null>(null);
+  // Mirror helpOpen into a ref so the keydown listener can read it without
+  // rebinding every time help toggles.
+  const helpOpenRef = useRef(helpOpen);
+  helpOpenRef.current = helpOpen;
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -53,7 +57,7 @@ export function Shortcuts() {
           s.closePalette();
           return;
         }
-        if (helpOpen) {
+        if (helpOpenRef.current) {
           setHelpOpen(false);
           return;
         }
@@ -181,7 +185,7 @@ export function Shortcuts() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [helpOpen]);
+  }, []);
 
   if (!helpOpen) return null;
   return (
@@ -216,14 +220,9 @@ function navigateSibling(delta: 1 | -1): void {
     let paths: string[] = s.status.map((f) => f.path);
     if (mode === "tree") {
       // Use all-expanded for sibling navigation so every file is reachable.
-      const allDirs = new Set<string>();
-      for (const f of s.status) {
-        const parts = f.path.split("/");
-        for (let i = 1; i < parts.length; i++) {
-          allDirs.add(parts.slice(0, i).join("/"));
-        }
-      }
-      paths = visibleFilePathsForTree(s.status, allDirs);
+      // Both helpers share a cached tree keyed on `status` reference identity,
+      // so repeated j/k over unchanged state is near-free.
+      paths = visibleFilePathsForTree(s.status, allDirPathsForTree(s.status));
     }
     if (paths.length === 0) return;
     const idx = s.focusedPath ? paths.indexOf(s.focusedPath) : -1;

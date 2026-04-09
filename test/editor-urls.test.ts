@@ -19,12 +19,12 @@ describe("editorUrl", () => {
   });
   test("idea format", () => {
     expect(editorUrl("idea", "/a/b/c.ts", 10, 1)).toBe(
-      "idea://open?file=/a/b/c.ts&line=10",
+      "idea://open?file=/a/b/c.ts&line=10&column=1",
     );
   });
   test("subl format", () => {
     expect(editorUrl("subl", "/a/b/c.ts", 10, 1)).toBe(
-      "subl://open?url=file:///a/b/c.ts&line=10",
+      "subl://open?url=file:///a/b/c.ts&line=10&column=1",
     );
   });
   test("none returns null", () => {

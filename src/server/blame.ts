@@ -1,21 +1,6 @@
 // src/server/blame.ts
-import { spawn } from "node:child_process";
+import { runGit } from "./git";
 import type { BlameLine } from "../shared/types";
-
-async function runGit(cwd: string, args: readonly string[]): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("git", args as string[], { cwd });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (d) => (stdout += d.toString("utf8")));
-    child.stderr.on("data", (d) => (stderr += d.toString("utf8")));
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) resolve(stdout);
-      else reject(new Error(`git blame failed (${code}): ${stderr}`));
-    });
-  });
-}
 
 interface CommitMeta {
   author: string;

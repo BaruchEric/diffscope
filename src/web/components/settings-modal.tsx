@@ -1,5 +1,4 @@
 // src/web/components/settings-modal.tsx
-import { useEffect } from "react";
 import { useStore } from "../store";
 import {
   useSettings,
@@ -49,19 +48,8 @@ export function SettingsModal() {
   const set = useSettings((s) => s.set);
   const reset = useSettings((s) => s.reset);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        close();
-      }
-    };
-    window.addEventListener("keydown", onKey, { capture: true });
-    return () =>
-      window.removeEventListener("keydown", onKey, { capture: true });
-  }, [open, close]);
-
+  // Esc is handled centrally by shortcuts.tsx (priority chain: settings →
+  // palette → filter → focus), so no local listener is needed here.
   if (!open) return null;
 
   return (

@@ -69,11 +69,13 @@ export async function startWatcher(
     batch.timer = setTimeout(flush, DEBOUNCE_MS);
   };
 
+  const HEAD_REFS = new Set(["HEAD", "ORIG_HEAD", "FETCH_HEAD", "MERGE_HEAD"]);
+
   const classify = (path: string, relativeTo: string): void => {
     const rel = path.startsWith(relativeTo) ? path.slice(relativeTo.length + 1) : path;
-    if (rel.startsWith(".git/")) {
-      const gitRel = rel.slice(5);
-      if (gitRel === "HEAD" || gitRel.startsWith("HEAD")) batch.head = true;
+    if (rel === ".git" || rel.startsWith(".git/")) {
+      const gitRel = rel.length > 4 ? rel.slice(5) : "";
+      if (HEAD_REFS.has(gitRel)) batch.head = true;
       if (gitRel.startsWith("refs/")) batch.refs = true;
       if (gitRel === "index") batch.index = true;
       if (gitRel === "refs/stash" || gitRel.startsWith("logs/refs/stash")) batch.stashes = true;

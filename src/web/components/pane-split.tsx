@@ -36,14 +36,21 @@ export function PaneSplit({
     };
   }, []);
 
-  // Clamp on window resize so a saved width doesn't overflow after window shrinks.
+  // Clamp on window resize so a saved width doesn't overflow after window
+  // shrinks. rAF-throttled so rapid resizes don't thrash localStorage.
   useEffect(() => {
+    let scheduled = false;
     const onResize = () => {
-      const current = useSettings.getState().fileListWidthPx;
-      const clamped = clamp(current);
-      if (clamped !== current) {
-        useSettings.getState().set({ fileListWidthPx: clamped });
-      }
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(() => {
+        scheduled = false;
+        const current = useSettings.getState().fileListWidthPx;
+        const clamped = clamp(current);
+        if (clamped !== current) {
+          useSettings.getState().set({ fileListWidthPx: clamped });
+        }
+      });
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);

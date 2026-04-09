@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
-import type { FileStatus } from "@shared/types";
+import type { FileChangeType, FileStatus } from "@shared/types";
 import { useStore } from "../store";
 import { useSettings } from "../settings";
+import { fuzzyFilter } from "../lib/fuzzy";
 import { FileTree } from "./file-tree";
 
+type GroupKind = "staged" | "unstaged" | "untracked";
 interface Group {
+  kind: GroupKind;
   label: string;
   files: FileStatus[];
 }
@@ -21,51 +24,10 @@ function group(status: FileStatus[]): Group[] {
     }
   }
   return [
-    { label: "Staged", files: staged },
-    { label: "Unstaged", files: unstaged },
-    { label: "Untracked", files: untracked },
+    { kind: "staged", label: "Staged", files: staged },
+    { kind: "unstaged", label: "Unstaged", files: unstaged },
+    { kind: "untracked", label: "Untracked", files: untracked },
   ];
-}
-
-/**
- * Tiny fuzzy matcher: returns a score (higher = better) if every character of
- * `needle` appears in order in `haystack`, otherwise null. Adjacent matches
- * and matches after a path separator score higher to bias toward filename
- * hits over deep-path noise.
- */
-function fuzzyScore(haystack: string, needle: string): number | null {
-  if (!needle) return 0;
-  const h = haystack.toLowerCase();
-  const n = needle.toLowerCase();
-  let hi = 0;
-  let score = 0;
-  let lastMatch = -2;
-  for (let i = 0; i < n.length; i++) {
-    const c = n[i]!;
-    const found = h.indexOf(c, hi);
-    if (found < 0) return null;
-    // Adjacency bonus
-    if (found === lastMatch + 1) score += 5;
-    // Boundary bonus (after / or - or _ or .)
-    const prev = found > 0 ? h[found - 1] : "/";
-    if (prev === "/" || prev === "-" || prev === "_" || prev === ".") score += 3;
-    score += 1;
-    lastMatch = found;
-    hi = found + 1;
-  }
-  // Slight bonus for shorter haystacks
-  return score - haystack.length * 0.05;
-}
-
-function filterAndRank(files: FileStatus[], query: string): FileStatus[] {
-  if (!query) return files;
-  const scored: { file: FileStatus; score: number }[] = [];
-  for (const f of files) {
-    const score = fuzzyScore(f.path, query);
-    if (score !== null) scored.push({ file: f, score });
-  }
-  scored.sort((a, b) => b.score - a.score);
-  return scored.map((s) => s.file);
 }
 
 export function FileList() {
@@ -80,7 +42,7 @@ export function FileList() {
     () =>
       group(status).map((grp) => ({
         ...grp,
-        files: filterAndRank(grp.files, filter),
+        files: fuzzyFilter(grp.files, filter, (f) => f.path),
       })),
     [status, filter],
   );
@@ -134,13 +96,13 @@ export function FileList() {
         ) : (
           groups.map((g) =>
             g.files.length === 0 ? null : (
-              <div key={g.label}>
+              <div key={g.kind}>
                 <div className="sticky top-0 bg-neutral-100 px-2 py-1 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
                   {g.label} ({g.files.length})
                 </div>
                 {g.files.map((f) => (
                   <button
-                    key={`${g.label}-${f.path}`}
+                    key={`${g.kind}-${f.path}`}
                     onClick={() => void focusFile(f.path)}
                     className={`flex w-full items-center gap-2 truncate px-2 py-1 text-left text-sm ${
                       focusedPath === f.path
@@ -148,7 +110,7 @@ export function FileList() {
                         : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
                     }`}
                   >
-                    <ChangeBadge file={f} group={g.label} />
+                    <ChangeBadge file={f} groupKind={g.kind} />
                     <span className="flex-1 truncate">{f.path}</span>
                     <DiffStats file={f} />
                   </button>
@@ -178,13 +140,15 @@ function DiffStats({ file }: { file: FileStatus }) {
   );
 }
 
-function ChangeBadge({ file, group }: { file: FileStatus; group: string }) {
-  const change =
-    group === "Staged"
-      ? file.staged
-      : group === "Unstaged"
-        ? file.unstaged
-        : "added";
+function ChangeBadge({
+  file,
+  groupKind,
+}: {
+  file: FileStatus;
+  groupKind: GroupKind;
+}) {
+  const change: FileChangeType | null =
+    groupKind === "staged" ? file.staged : groupKind === "unstaged" ? file.unstaged : "added";
   const letter =
     change === "added"
       ? "A"

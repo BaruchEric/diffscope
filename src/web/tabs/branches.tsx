@@ -1,20 +1,19 @@
 import { useMemo, useState } from "react";
 import type { Branch } from "@shared/types";
 import { useStore } from "../store";
+import { fuzzyFilter } from "../lib/fuzzy";
 
 export function BranchesTab() {
   const branches = useStore((s) => s.branches);
-  const [focused, setFocused] = useState<string | null>(null);
+  const focused = useStore((s) => s.focusedBranch);
+  const focusBranch = useStore((s) => s.focusBranch);
   const [query, setQuery] = useState("");
   const selected = branches.find((b) => b.name === focused) ?? null;
 
-  const filtered = useMemo(() => {
-    if (!query) return branches;
-    const q = query.toLowerCase();
-    return branches.filter(
-      (b) => b.name.toLowerCase().includes(q) || b.tipSubject.toLowerCase().includes(q),
-    );
-  }, [branches, query]);
+  const filtered = useMemo(
+    () => fuzzyFilter(branches, query, (b) => `${b.name} ${b.tipSubject}`),
+    [branches, query],
+  );
 
   const locals = filtered.filter((b) => !b.isRemote);
   const remotes = filtered.filter((b) => b.isRemote);
@@ -31,8 +30,8 @@ export function BranchesTab() {
           />
         </div>
         <div className="flex-1 overflow-auto">
-          <BranchGroup label="Local" branches={locals} focused={focused} onFocus={setFocused} />
-          <BranchGroup label="Remotes" branches={remotes} focused={focused} onFocus={setFocused} />
+          <BranchGroup label="Local" branches={locals} focused={focused} onFocus={focusBranch} />
+          <BranchGroup label="Remotes" branches={remotes} focused={focused} onFocus={focusBranch} />
         </div>
       </div>
       <div className="overflow-auto p-6">

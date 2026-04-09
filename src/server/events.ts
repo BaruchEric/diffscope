@@ -15,6 +15,8 @@ import { startWatcher, type WatcherEvent, type WatcherHandle } from "./watcher";
 
 type Subscriber = (event: SseEvent) => void;
 
+const DIFF_CONCURRENCY = 8;
+
 export interface EventHub {
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -33,6 +35,17 @@ export function createEventHub(repo: Repo): EventHub {
     for (const sub of subscribers) sub(event);
   };
 
+  const fileStatusEqual = (a: FileStatus, b: FileStatus): boolean =>
+    a.path === b.path &&
+    a.oldPath === b.oldPath &&
+    a.staged === b.staged &&
+    a.unstaged === b.unstaged &&
+    a.isUntracked === b.isUntracked &&
+    a.isImage === b.isImage &&
+    a.isBinary === b.isBinary &&
+    a.added === b.added &&
+    a.deleted === b.deleted;
+
   const diffStatuses = (
     prev: FileStatus[],
     next: FileStatus[],
@@ -43,7 +56,7 @@ export function createEventHub(repo: Repo): EventHub {
     for (const f of next) {
       nextPaths.add(f.path);
       const p = prevByPath.get(f.path);
-      if (!p || JSON.stringify(p) !== JSON.stringify(f)) updated.push(f);
+      if (!p || !fileStatusEqual(p, f)) updated.push(f);
     }
     const removed = [...prevByPath.keys()].filter((p) => !nextPaths.has(p));
     return { updated, removed };
@@ -71,16 +84,41 @@ export function createEventHub(repo: Repo): EventHub {
       const next = await repo.getStatus();
       const { updated, removed } = diffStatuses(statusSnapshot, next);
       statusSnapshot = next;
-      for (const f of updated) {
-        let diff: ParsedDiff | undefined;
-        if (opts.withDiffs && (!opts.pathsToDiff || opts.pathsToDiff.includes(f.path))) {
-          try {
-            diff = (await repo.getFileDiff(f.path, { staged: false })) ?? undefined;
-          } catch (err) {
-            if (err instanceof GitError) emit({ type: "warning", message: err.stderr });
+
+      // Fetch diffs for updated files concurrently, but cap concurrency so a
+      // watcher batch with hundreds of files (e.g. mass rebase) doesn't spawn
+      // hundreds of `git diff` subprocesses at once and starve CPU/FDs.
+      const wantDiff = (path: string): boolean =>
+        !!opts.withDiffs && (!opts.pathsToDiff || opts.pathsToDiff.includes(path));
+
+      const diffs: (ParsedDiff | undefined)[] = new Array(updated.length);
+      let cursor = 0;
+      const workers = Array.from(
+        { length: Math.min(DIFF_CONCURRENCY, updated.length) },
+        async () => {
+          while (true) {
+            const idx = cursor++;
+            if (idx >= updated.length) return;
+            const f = updated[idx]!;
+            if (!wantDiff(f.path)) {
+              diffs[idx] = undefined;
+              continue;
+            }
+            try {
+              diffs[idx] =
+                (await repo.getFileDiff(f.path, { staged: false })) ?? undefined;
+            } catch (err) {
+              if (err instanceof GitError)
+                emit({ type: "warning", message: err.stderr });
+              diffs[idx] = undefined;
+            }
           }
-        }
-        emit({ type: "file-updated", path: f.path, status: f, diff });
+        },
+      );
+      await Promise.all(workers);
+
+      for (let i = 0; i < updated.length; i++) {
+        emit({ type: "file-updated", path: updated[i]!.path, status: updated[i]!, diff: diffs[i] });
       }
       for (const p of removed) emit({ type: "file-removed", path: p });
     } catch (err) {
@@ -152,7 +190,10 @@ export function createEventHub(repo: Repo): EventHub {
             .then(() => handleWatcherEvent(event))
             .catch(() => {});
         },
-        (err) => emit({ type: "warning", message: err.message }),
+        (err) => {
+          emit({ type: "watcher-down" });
+          emit({ type: "warning", message: err.message });
+        },
       );
     },
     async stop() {

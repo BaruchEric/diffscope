@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useStore } from "../store";
 
 const TOAST_TTL_MS = 5000;
@@ -6,17 +6,42 @@ const TOAST_TTL_MS = 5000;
 export function Toasts() {
   const toasts = useStore((s) => s.toasts);
   const dismissToast = useStore((s) => s.dismissToast);
+  const timersRef = useRef(new Map<number, ReturnType<typeof setTimeout>>());
 
-  // Auto-dismiss each toast after TOAST_TTL_MS.
+  // Schedule exactly one TTL timer per toast id. Without this, a new toast
+  // triggered the old effect's cleanup, which cleared every running timer
+  // and rescheduled them — so older toasts never expired under load.
   useEffect(() => {
-    if (toasts.length === 0) return;
-    const timers = toasts.map((t) =>
-      setTimeout(() => dismissToast(t.id), TOAST_TTL_MS),
-    );
-    return () => {
-      for (const t of timers) clearTimeout(t);
-    };
+    const timers = timersRef.current;
+    const alive = new Set(toasts.map((t) => t.id));
+    // Schedule timers for new toasts.
+    for (const t of toasts) {
+      if (timers.has(t.id)) continue;
+      timers.set(
+        t.id,
+        setTimeout(() => {
+          timers.delete(t.id);
+          dismissToast(t.id);
+        }, TOAST_TTL_MS),
+      );
+    }
+    // Clear timers for toasts that have been dismissed externally.
+    for (const [id, timer] of timers) {
+      if (!alive.has(id)) {
+        clearTimeout(timer);
+        timers.delete(id);
+      }
+    }
   }, [toasts, dismissToast]);
+
+  // On unmount, clear all pending timers.
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      for (const t of timers.values()) clearTimeout(t);
+      timers.clear();
+    };
+  }, []);
 
   if (toasts.length === 0) return null;
 

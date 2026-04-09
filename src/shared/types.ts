@@ -26,8 +26,6 @@ export interface FileStatus {
   isImage: boolean;
   /** True if git reports binary. */
   isBinary: boolean;
-  /** File size in bytes of the current working-tree version, if known. */
-  sizeBytes?: number;
   /** Lines added in this file's diff (working-tree vs HEAD). */
   added?: number;
   /** Lines deleted in this file's diff (working-tree vs HEAD). */

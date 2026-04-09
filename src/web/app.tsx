@@ -25,7 +25,17 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const unsub = useSettings.subscribe((s) => applyTheme(s.theme));
+    // Only re-apply theme when `theme` actually changes. `useSettings.subscribe`
+    // fires on any settings mutation (fileListMode, editor, etc.), and
+    // applyTheme detaches/re-attaches a matchMedia listener — thrashing it on
+    // every unrelated toggle is wasteful.
+    let prev = useSettings.getState().theme;
+    const unsub = useSettings.subscribe((s) => {
+      if (s.theme !== prev) {
+        prev = s.theme;
+        applyTheme(s.theme);
+      }
+    });
     return () => unsub();
   }, []);
 
