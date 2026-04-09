@@ -1,20 +1,39 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Branch } from "@shared/types";
 import { useStore } from "../store";
 
 export function BranchesTab() {
   const branches = useStore((s) => s.branches);
   const [focused, setFocused] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const selected = branches.find((b) => b.name === focused) ?? null;
 
-  const locals = branches.filter((b) => !b.isRemote);
-  const remotes = branches.filter((b) => b.isRemote);
+  const filtered = useMemo(() => {
+    if (!query) return branches;
+    const q = query.toLowerCase();
+    return branches.filter(
+      (b) => b.name.toLowerCase().includes(q) || b.tipSubject.toLowerCase().includes(q),
+    );
+  }, [branches, query]);
+
+  const locals = filtered.filter((b) => !b.isRemote);
+  const remotes = filtered.filter((b) => b.isRemote);
 
   return (
     <div className="grid h-full grid-cols-[320px_1fr]">
-      <div className="overflow-auto border-r border-neutral-200 dark:border-neutral-800">
-        <BranchGroup label="Local" branches={locals} focused={focused} onFocus={setFocused} />
-        <BranchGroup label="Remotes" branches={remotes} focused={focused} onFocus={setFocused} />
+      <div className="flex flex-col border-r border-neutral-200 dark:border-neutral-800">
+        <div className="border-b border-neutral-200 p-2 dark:border-neutral-800">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search branches…"
+            className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          />
+        </div>
+        <div className="flex-1 overflow-auto">
+          <BranchGroup label="Local" branches={locals} focused={focused} onFocus={setFocused} />
+          <BranchGroup label="Remotes" branches={remotes} focused={focused} onFocus={setFocused} />
+        </div>
       </div>
       <div className="overflow-auto p-6">
         {!selected && <p className="text-neutral-500">Select a branch to see its tip.</p>}
