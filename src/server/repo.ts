@@ -87,8 +87,7 @@ export function createRepo(cwd: string): Repo {
       const meta = parseLog(metaRaw)[0];
       if (!meta) throw new Error(`commit ${sha} not found`);
       const diff = parseDiff(diffRaw);
-      // Extract body from metaRaw's last field (empty string in fixtures — body came from log format's %b)
-      return { ...meta, body: "", diff };
+      return { ...meta, diff };
     },
     async getBranches(): Promise<Branch[]> {
       const out = await runGit(cwd, [

@@ -192,7 +192,7 @@ export function parseLog(raw: string): Commit[] {
   for (const record of records) {
     const fields = record.split("\x00");
     if (fields.length < 8) continue;
-    const [sha, shortSha, parents, author, authorEmail, date, refs, subject] = fields as [
+    const [sha, shortSha, parents, author, authorEmail, date, refs, subject, body] = fields as [
       string,
       string,
       string,
@@ -201,6 +201,7 @@ export function parseLog(raw: string): Commit[] {
       string,
       string,
       string,
+      string | undefined,
     ];
     commits.push({
       sha,
@@ -211,6 +212,7 @@ export function parseLog(raw: string): Commit[] {
       date,
       refs: refs ? refs.split(", ").filter((r) => r.length > 0) : [],
       subject,
+      body: (body ?? "").trimEnd(),
     });
   }
   return commits;

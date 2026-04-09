@@ -175,9 +175,11 @@ describe("parseLog", () => {
       date: "2026-04-08T10:00:00+00:00",
       refs: ["HEAD -> main", "origin/main"],
       subject: "feat: initial commit",
+      body: "",
     });
     expect(commits[1]!.parents).toEqual([]);
     expect(commits[1]!.refs).toEqual([]);
     expect(commits[1]!.author).toBe("Bob Smith");
+    expect(commits[1]!.body).toBe("Longer body\nwith multiple lines");
   });
 });

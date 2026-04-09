@@ -63,12 +63,12 @@ export interface Commit {
   authorEmail: string;
   date: string; // ISO 8601
   subject: string;
+  body: string; // commit message body (everything after the subject line)
   parents: string[];
   refs: string[]; // e.g. ["HEAD -> main", "origin/main"]
 }
 
 export interface CommitDetail extends Commit {
-  body: string;
   diff: ParsedDiff[];
 }
 
