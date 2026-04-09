@@ -2,7 +2,7 @@
 // Tiny always-loaded zustand store holding terminal metadata.
 // Persistence is manual (write-through on every mutation) so unit tests
 // can inject a fake Storage without pulling in zustand/middleware/persist.
-import { create, type StoreApi } from "zustand";
+import { create, type UseBoundStore, type StoreApi } from "zustand";
 
 export type TerminalStatus = "running" | "exited";
 
@@ -24,7 +24,7 @@ export interface TerminalState {
   clearAll(): void;
 }
 
-export type TerminalStore = StoreApi<TerminalState>;
+export type TerminalStore = UseBoundStore<StoreApi<TerminalState>>;
 
 const STORAGE_KEY = "diffscope:terminals:v1";
 
