@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Layout } from "./components/layout";
+import { Picker } from "./components/picker";
 import { WorkingTreeTab } from "./tabs/working-tree";
 import { HistoryTab } from "./tabs/history";
 import { BranchesTab } from "./tabs/branches";
@@ -17,13 +18,7 @@ export function App() {
     return () => teardown();
   }, [initialize, teardown]);
 
-  if (!repoLoaded) {
-    return (
-      <div className="flex h-full items-center justify-center text-neutral-500">
-        Loading repo…
-      </div>
-    );
-  }
+  if (!repoLoaded) return <Picker />;
 
   return (
     <Layout>
