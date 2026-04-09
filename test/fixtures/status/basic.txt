@@ -1,0 +1,8 @@
+# branch.oid 1234567890abcdef1234567890abcdef12345678
+# branch.head main
+1 M. N... 100644 100644 100644 abc123 abc124 src/app.ts
+1 .M N... 100644 100644 100644 def456 def457 README.md
+1 MM N... 100644 100644 100644 aaa111 aaa112 src/cli.ts
+? new.ts
+? docs/note.md
+! ignored.log
