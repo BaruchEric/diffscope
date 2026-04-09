@@ -1,0 +1,24 @@
+{
+  "name": "diffscope",
+  "version": "0.0.1",
+  "description": "A local, read-only, live git diff viewer.",
+  "type": "module",
+  "bin": {
+    "diffscope": "./bin/diffscope.ts"
+  },
+  "scripts": {
+    "dev:server": "bun run --hot src/server/cli.ts",
+    "dev:web": "vite",
+    "build:web": "vite build",
+    "start": "bun run src/server/cli.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "@parcel/watcher": "^2.4.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.0"
+  }
+}
