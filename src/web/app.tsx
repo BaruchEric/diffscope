@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Layout } from "./components/layout";
 import { Picker } from "./components/picker";
+import { Shortcuts } from "./components/shortcuts";
 import { WorkingTreeTab } from "./tabs/working-tree";
 import { HistoryTab } from "./tabs/history";
 import { BranchesTab } from "./tabs/branches";
@@ -18,14 +19,23 @@ export function App() {
     return () => teardown();
   }, [initialize, teardown]);
 
-  if (!repoLoaded) return <Picker />;
+  if (!repoLoaded)
+    return (
+      <>
+        <Picker />
+        <Shortcuts />
+      </>
+    );
 
   return (
-    <Layout>
-      {tab === "working-tree" && <WorkingTreeTab />}
-      {tab === "history" && <HistoryTab />}
-      {tab === "branches" && <BranchesTab />}
-      {tab === "stashes" && <StashesTab />}
-    </Layout>
+    <>
+      <Layout>
+        {tab === "working-tree" && <WorkingTreeTab />}
+        {tab === "history" && <HistoryTab />}
+        {tab === "branches" && <BranchesTab />}
+        {tab === "stashes" && <StashesTab />}
+      </Layout>
+      <Shortcuts />
+    </>
   );
 }
