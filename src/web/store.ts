@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type {
+  BlameLine,
   Branch,
   Commit,
   FileStatus,
@@ -40,6 +41,11 @@ interface StoreState {
   error: string | null;
   toasts: Toast[];
   dismissToast: (id: number) => void;
+  blameOnFor: Set<string>;
+  blameCache: Map<string, BlameLine[]>; // key: `${path}@${headSha}`
+  blameLoading: Set<string>;
+  toggleBlame: (path: string) => void;
+  ensureBlameLoaded: (path: string) => Promise<void>;
   sse: SseClient | null;
   paletteOpen: boolean;
   settingsOpen: boolean;
@@ -79,6 +85,9 @@ export const useStore = create<StoreState>((set, get) => ({
   toasts: [],
   dismissToast: (id) =>
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  blameOnFor: new Set<string>(),
+  blameCache: new Map<string, BlameLine[]>(),
+  blameLoading: new Set<string>(),
   sse: null,
   paletteOpen: false,
   settingsOpen: false,
@@ -99,10 +108,60 @@ export const useStore = create<StoreState>((set, get) => ({
 
   focusFile: async (path) => {
     set({ focusedPath: path, focusedDiff: null });
+    const sticky = useSettings.getState().blameStickyOn;
+    if (sticky) {
+      const on = new Set(get().blameOnFor);
+      if (!on.has(path)) on.add(path);
+      set({ blameOnFor: on });
+      void get().ensureBlameLoaded(path);
+    }
     const entry = get().status.find((f) => f.path === path);
     const staged = entry?.staged !== null && entry?.unstaged === null;
     const diff = await api.diff(path, staged).catch(() => null);
     if (get().focusedPath === path) set({ focusedDiff: diff });
+  },
+
+  toggleBlame: (path) => {
+    const s = get();
+    const on = new Set(s.blameOnFor);
+    const wasOn = on.has(path);
+    if (wasOn) on.delete(path);
+    else on.add(path);
+    set({ blameOnFor: on });
+    if (!wasOn) void s.ensureBlameLoaded(path);
+  },
+
+  ensureBlameLoaded: async (path) => {
+    const s = get();
+    const headSha = s.repo?.headSha ?? "";
+    const key = `${path}@${headSha}`;
+    if (s.blameCache.has(key)) return;
+    if (s.blameLoading.has(path)) return;
+    const loading = new Set(s.blameLoading);
+    loading.add(path);
+    set({ blameLoading: loading });
+    try {
+      const lines = await api.blame(path);
+      const cache = new Map(get().blameCache);
+      cache.set(key, lines);
+      set({ blameCache: cache });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({
+        toasts: [
+          ...get().toasts,
+          { id: Date.now(), kind: "warning", message: `Blame failed: ${msg}` },
+        ],
+      });
+      // Turn blame off for this file so we don't spin.
+      const on = new Set(get().blameOnFor);
+      on.delete(path);
+      set({ blameOnFor: on });
+    } finally {
+      const loading2 = new Set(get().blameLoading);
+      loading2.delete(path);
+      set({ blameLoading: loading2 });
+    }
   },
 
   focusCommit: async (sha) => {
@@ -184,7 +243,12 @@ function handleEvent(
       break;
     }
     case "head-changed":
-      set({ status: event.status, branches: event.branches });
+      set({
+        status: event.status,
+        branches: event.branches,
+        blameCache: new Map(),
+        blameOnFor: new Set(),
+      });
       break;
     case "refs-changed":
       set({ branches: event.branches });

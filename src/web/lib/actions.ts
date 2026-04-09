@@ -83,5 +83,14 @@ export function buildActions(): PaletteAction[] {
         if (p) void navigator.clipboard.writeText(p);
       },
     },
+    {
+      id: "blame.toggle",
+      label: "Toggle Blame on Current File",
+      hint: "b",
+      run: () => {
+        const p = useStore.getState().focusedPath;
+        if (p) useStore.getState().toggleBlame(p);
+      },
+    },
   ];
 }

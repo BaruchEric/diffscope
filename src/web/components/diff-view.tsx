@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
-import type { DiffLine, ParsedDiff } from "@shared/types";
+import type { BlameLine, DiffLine, ParsedDiff } from "@shared/types";
 import { getHighlighter, langFromPath } from "../lib/highlight";
 import { useStore } from "../store";
+import { BlameGutter } from "./blame-gutter";
+import {
+  OpenInEditorLineIcon,
+  OpenInEditorHeaderButton,
+} from "./open-in-editor";
 
 interface Props {
   diff: ParsedDiff | null;
@@ -14,6 +19,10 @@ export function DiffView({ diff, loading }: Props) {
   // All hooks must run unconditionally on every render (Rules of Hooks).
   const [userExpanded, setUserExpanded] = useState(false);
   const mode = useStore((s) => s.diffMode);
+  const focusedPath = useStore((s) => s.focusedPath);
+  const blameOnFor = useStore((s) => s.blameOnFor);
+  const blameCache = useStore((s) => s.blameCache);
+  const repo = useStore((s) => s.repo);
 
   if (loading) {
     return <div className="p-4 text-neutral-500">Loading diff…</div>;
@@ -58,10 +67,20 @@ export function DiffView({ diff, loading }: Props) {
     );
   }
 
+  const isFocused = focusedPath === diff.path;
+  const blameOnForThis = isFocused && blameOnFor.has(diff.path);
+  const blameKey = isFocused && repo ? `${diff.path}@${repo.headSha}` : null;
+  const blameLines = blameKey ? blameCache.get(blameKey) : undefined;
+  const absPathForEditor =
+    isFocused && repo ? `${repo.root}/${diff.path}` : null;
+
   return (
     <div className="h-full overflow-auto font-mono text-[13px]">
-      <div className="border-b border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">
-        {diff.oldPath && diff.oldPath !== diff.path ? `${diff.oldPath} → ${diff.path}` : diff.path}
+      <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">
+        <span>
+          {diff.oldPath && diff.oldPath !== diff.path ? `${diff.oldPath} → ${diff.path}` : diff.path}
+        </span>
+        <DiffViewHeaderControls diff={diff} />
       </div>
       {diff.hunks.map((h, i) => (
         <div key={i} className="border-b border-neutral-100 last:border-b-0 dark:border-neutral-900">
@@ -69,12 +88,51 @@ export function DiffView({ diff, loading }: Props) {
             {h.header}
           </div>
           {mode === "unified" ? (
-            <HunkLines path={diff.path} lines={h.lines} />
+            <HunkLines
+              path={diff.path}
+              lines={h.lines}
+              blameOn={blameOnForThis}
+              blame={blameLines}
+              absPath={absPathForEditor}
+            />
           ) : (
             <SplitHunk path={diff.path} lines={h.lines} />
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+function DiffViewHeaderControls({ diff }: { diff: ParsedDiff }) {
+  const focusedPath = useStore((s) => s.focusedPath);
+  const blameOnFor = useStore((s) => s.blameOnFor);
+  const repo = useStore((s) => s.repo);
+  const toggleBlame = useStore((s) => s.toggleBlame);
+
+  // Only show controls when the diff is for the currently focused file.
+  if (!focusedPath || focusedPath !== diff.path) return null;
+
+  const blameOn = blameOnFor.has(focusedPath);
+  const firstLine = diff.hunks[0]?.newStart ?? 1;
+  const absPath = `${repo?.root ?? ""}/${focusedPath}`;
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => toggleBlame(focusedPath)}
+        aria-pressed={blameOn}
+        title="Toggle blame (HEAD only) — b"
+        className={
+          "rounded px-2 py-0.5 text-xs " +
+          (blameOn
+            ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
+            : "hover:bg-neutral-100 dark:hover:bg-neutral-800")
+        }
+      >
+        Blame
+      </button>
+      <OpenInEditorHeaderButton absPath={absPath} firstLine={firstLine} />
     </div>
   );
 }
@@ -166,7 +224,19 @@ function SplitColumn({
   );
 }
 
-function HunkLines({ path, lines }: { path: string; lines: DiffLine[] }) {
+function HunkLines({
+  path,
+  lines,
+  blameOn,
+  blame,
+  absPath,
+}: {
+  path: string;
+  lines: DiffLine[];
+  blameOn: boolean;
+  blame: BlameLine[] | undefined;
+  absPath: string | null;
+}) {
   const texts = lines.map((l) => l.text);
   const highlighted = useHighlightedTexts(path, texts);
   return (
@@ -176,13 +246,19 @@ function HunkLines({ path, lines }: { path: string; lines: DiffLine[] }) {
           <tr
             key={i}
             className={
-              l.kind === "add"
+              "group " +
+              (l.kind === "add"
                 ? "bg-green-100 dark:bg-green-900"
                 : l.kind === "del"
                 ? "bg-red-100 dark:bg-red-900"
-                : ""
+                : "")
             }
           >
+            {blameOn && (
+              <td className="select-none px-2 align-top">
+                <BlameGutter blame={blame} lineNumber={l.newLine ?? l.oldLine} />
+              </td>
+            )}
             <td className="w-12 select-none px-2 text-right align-top text-neutral-400">
               {l.oldLine ?? ""}
             </td>
@@ -195,6 +271,11 @@ function HunkLines({ path, lines }: { path: string; lines: DiffLine[] }) {
                 __html: highlighted?.[i] ?? escapeHtml(l.text),
               }}
             />
+            {absPath && l.newLine !== undefined && (
+              <td className="w-6 align-top">
+                <OpenInEditorLineIcon absPath={absPath} line={l.newLine} />
+              </td>
+            )}
           </tr>
         ))}
       </tbody>

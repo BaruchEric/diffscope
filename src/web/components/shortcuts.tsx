@@ -58,6 +58,11 @@ export function Shortcuts() {
         useSettings.getState().set({ fileListMode: cur === "tree" ? "flat" : "tree" });
         return;
       }
+      if (e.key === "b") {
+        const p = useStore.getState().focusedPath;
+        if (p) useStore.getState().toggleBlame(p);
+        return;
+      }
       if (e.key === "/") {
         e.preventDefault();
         const el = document.querySelector<HTMLInputElement>("[data-filter-input]");
