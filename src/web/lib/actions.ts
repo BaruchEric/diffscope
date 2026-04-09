@@ -94,5 +94,14 @@ export function buildActions(): PaletteAction[] {
         if (p) useStore.getState().toggleBlame(p);
       },
     },
+    {
+      id: "terminal.toggle",
+      label: "Terminal: Toggle Drawer",
+      hint: "⌘`",
+      run: () => {
+        const cur = useSettings.getState().terminalDrawerOpen;
+        useSettings.getState().set({ terminalDrawerOpen: !cur });
+      },
+    },
   ];
 }
