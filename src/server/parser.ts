@@ -182,7 +182,12 @@ export function parseDiff(raw: string): ParsedDiff[] {
 const RECORD_SEP = "\x1e";
 
 export function parseLog(raw: string): Commit[] {
-  const records = raw.split(RECORD_SEP).filter((r) => r.length > 0);
+  // git log --format=...%x1e appends a newline after each record, so subsequent
+  // records start with "\n" — strip leading newlines to keep the sha clean.
+  const records = raw
+    .split(RECORD_SEP)
+    .map((r) => r.replace(/^\n+/, ""))
+    .filter((r) => r.length > 0);
   const commits: Commit[] = [];
   for (const record of records) {
     const fields = record.split("\x00");
