@@ -17,10 +17,11 @@ body,
 
 :root,
 [data-theme="midnight"] {
-  --bg:             #0b0d10;
-  --bg-elevated:    #0d1016;
-  --surface:        #12151a;
-  --surface-hover:  #1a2230;
+  --bg:                  #0b0d10;
+  --bg-elevated:         #0d1016;
+  --surface:             #12151a;
+  --surface-translucent: rgba(18, 21, 26, 0.95);
+  --surface-hover:       #1a2230;
   --border:         #1a2230;
   --border-strong:  #2a3441;
 
@@ -56,10 +57,11 @@ body,
 }
 
 [data-theme="paper"] {
-  --bg:             #faf7f1;
-  --bg-elevated:    #f5efe0;
-  --surface:        #fffefa;
-  --surface-hover:  #f5efe0;
+  --bg:                  #faf7f1;
+  --bg-elevated:         #f5efe0;
+  --surface:             #fffefa;
+  --surface-translucent: rgba(255, 254, 250, 0.94);
+  --surface-hover:       #f5efe0;
   --border:         #ede5d2;
   --border-strong:  #d6cdb3;
 
@@ -95,10 +97,11 @@ body,
 }
 
 [data-theme="aperture"] {
-  --bg:             #f7f7f5;
-  --bg-elevated:    #ffffff;
-  --surface:        #ffffff;
-  --surface-hover:  #f5f5f4;
+  --bg:                  #f7f7f5;
+  --bg-elevated:         #ffffff;
+  --surface:             #ffffff;
+  --surface-translucent: rgba(255, 255, 255, 0.94);
+  --surface-hover:       #f5f5f4;
   --border:         #e7e5e4;
   --border-strong:  #d6d3d1;
 

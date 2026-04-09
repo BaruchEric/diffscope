@@ -14,6 +14,7 @@ export default {
         },
         surface: {
           DEFAULT: "var(--surface)",
+          translucent: "var(--surface-translucent)",
           hover: "var(--surface-hover)",
         },
         border: {
