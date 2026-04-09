@@ -8,6 +8,19 @@ interface Recent {
   lastOpenedAt: string;
 }
 
+function relativeTime(iso: string): string {
+  const now = Date.now();
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const diffSec = Math.round((now - then) / 1000);
+  if (diffSec < 60) return "just now";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  if (diffSec < 86400 * 7) return `${Math.floor(diffSec / 86400)}d ago`;
+  if (diffSec < 86400 * 30) return `${Math.floor(diffSec / 86400 / 7)}w ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
 function Breadcrumb({
   path,
   onNavigate,
@@ -95,9 +108,12 @@ export function Picker() {
               <li key={r.path}>
                 <button
                   onClick={() => void open(r.path)}
-                  className="block w-full truncate rounded px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                  className="flex w-full items-center justify-between gap-3 rounded px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-900"
                 >
-                  {r.path}
+                  <span className="truncate">{r.path}</span>
+                  <span className="shrink-0 text-xs text-neutral-500">
+                    {relativeTime(r.lastOpenedAt)}
+                  </span>
                 </button>
               </li>
             ))}
