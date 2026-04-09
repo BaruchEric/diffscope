@@ -58,8 +58,30 @@ export function createRepo(cwd: string): Repo {
       return out.trim();
     },
     async getStatus() {
-      const out = await runGit(cwd, ["status", "--porcelain=v2"]);
-      return parseStatus(out);
+      const [statusOut, numstatOut] = await Promise.all([
+        runGit(cwd, ["status", "--porcelain=v2"]),
+        runGit(cwd, ["diff", "--numstat", "HEAD"]).catch(() => ""),
+      ]);
+      const status = parseStatus(statusOut);
+      // Merge --numstat output: each line is "<added>\t<deleted>\t<path>".
+      // Binary files show as "-\t-\t<path>" which we leave as undefined.
+      const stats = new Map<string, { added: number; deleted: number }>();
+      for (const line of numstatOut.split("\n")) {
+        if (!line) continue;
+        const m = /^(\d+|-)\t(\d+|-)\t(.+)$/.exec(line);
+        if (!m) continue;
+        const added = m[1] === "-" ? 0 : parseInt(m[1]!, 10);
+        const deleted = m[2] === "-" ? 0 : parseInt(m[2]!, 10);
+        stats.set(m[3]!, { added, deleted });
+      }
+      for (const f of status) {
+        const s = stats.get(f.path);
+        if (s) {
+          f.added = s.added;
+          f.deleted = s.deleted;
+        }
+      }
+      return status;
     },
     async getFileDiff(path, { staged }) {
       const args = ["diff", "--patch", "--no-color"];

@@ -110,7 +110,8 @@ export function FileList() {
                   }`}
                 >
                   <ChangeBadge file={f} group={g.label} />
-                  <span className="truncate">{f.path}</span>
+                  <span className="flex-1 truncate">{f.path}</span>
+                  <DiffStats file={f} />
                 </button>
               ))}
             </div>
@@ -118,6 +119,22 @@ export function FileList() {
         )}
       </div>
     </div>
+  );
+}
+
+function DiffStats({ file }: { file: FileStatus }) {
+  if (file.added === undefined && file.deleted === undefined) return null;
+  if ((file.added ?? 0) === 0 && (file.deleted ?? 0) === 0) return null;
+  return (
+    <span className="shrink-0 font-mono text-[11px] tabular-nums">
+      {file.added !== undefined && file.added > 0 && (
+        <span className="text-green-600 dark:text-green-400">+{file.added}</span>
+      )}
+      {file.added !== undefined && file.added > 0 && file.deleted !== undefined && file.deleted > 0 && " "}
+      {file.deleted !== undefined && file.deleted > 0 && (
+        <span className="text-red-600 dark:text-red-400">−{file.deleted}</span>
+      )}
+    </span>
   );
 }
 

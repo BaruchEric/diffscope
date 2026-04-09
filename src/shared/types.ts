@@ -28,6 +28,10 @@ export interface FileStatus {
   isBinary: boolean;
   /** File size in bytes of the current working-tree version, if known. */
   sizeBytes?: number;
+  /** Lines added in this file's diff (working-tree vs HEAD). */
+  added?: number;
+  /** Lines deleted in this file's diff (working-tree vs HEAD). */
+  deleted?: number;
 }
 
 export interface DiffLine {
