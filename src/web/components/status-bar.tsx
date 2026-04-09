@@ -40,9 +40,19 @@ export function StatusBar() {
         {untracked > 0 && <span className="text-green-600 dark:text-green-400">{untracked} untracked</span>}
         {staged === 0 && unstaged === 0 && untracked === 0 && "clean"}
       </span>
-      <span className="ml-auto truncate font-mono text-neutral-500">
-        {repo?.headSha?.slice(0, 7)}
-      </span>
+      <div className="ml-auto flex items-center gap-2">
+        <span className="truncate font-mono text-neutral-500">
+          {repo?.headSha?.slice(0, 7)}
+        </span>
+        <button
+          onClick={() => useStore.getState().openSettings()}
+          title="Settings (,)"
+          aria-label="Open settings"
+          className="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+        >
+          ⚙
+        </button>
+      </div>
     </footer>
   );
 }

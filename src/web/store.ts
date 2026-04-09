@@ -41,6 +41,12 @@ interface StoreState {
   toasts: Toast[];
   dismissToast: (id: number) => void;
   sse: SseClient | null;
+  paletteOpen: boolean;
+  settingsOpen: boolean;
+  openPalette: () => void;
+  closePalette: () => void;
+  openSettings: () => void;
+  closeSettings: () => void;
 
   setTab: (tab: Tab) => void;
   setDiffMode: (mode: DiffMode) => void;
@@ -74,6 +80,12 @@ export const useStore = create<StoreState>((set, get) => ({
   dismissToast: (id) =>
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   sse: null,
+  paletteOpen: false,
+  settingsOpen: false,
+  openPalette: () => set({ paletteOpen: true }),
+  closePalette: () => set({ paletteOpen: false }),
+  openSettings: () => set({ settingsOpen: true }),
+  closeSettings: () => set({ settingsOpen: false }),
 
   setTab: (tab) => {
     useSettings.getState().set({ lastUsedTab: tab });

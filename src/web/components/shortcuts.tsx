@@ -32,6 +32,10 @@ export function Shortcuts() {
         setHelpOpen(false);
         return;
       }
+      if (e.key === ",") {
+        useStore.getState().openSettings();
+        return;
+      }
 
       const s = useStore.getState();
       if (e.key === "p") {
