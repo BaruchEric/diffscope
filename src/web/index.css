@@ -8,10 +8,140 @@ body,
   height: 100%;
 }
 
-body {
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "SF Pro Text",
-    sans-serif;
+/* ───────────────────────────────────────────────────────────
+   Theme tokens
+   Single source of truth for all surface, foreground, border,
+   accent, and diff colors. Each [data-theme] block is a
+   complete theme — no partial overrides.
+   ─────────────────────────────────────────────────────────── */
+
+:root,
+[data-theme="midnight"] {
+  --bg:             #0b0d10;
+  --bg-elevated:    #0d1016;
+  --surface:        #12151a;
+  --surface-hover:  #1a2230;
+  --border:         #1a2230;
+  --border-strong:  #2a3441;
+
+  --fg:             #e2e8f0;
+  --fg-muted:       #64748b;
+  --fg-subtle:      #475569;
+
+  --accent:         #67e8f9;
+  --accent-fg:      #0b0d10;
+  --accent-soft:    rgba(103, 232, 249, 0.12);
+
+  --diff-add-bg:    rgba(34, 197, 94, 0.08);
+  --diff-add-fg:    #86efac;
+  --diff-add-sign:  #22c55e;
+  --diff-del-bg:    rgba(239, 68, 68, 0.09);
+  --diff-del-fg:    #fca5a5;
+  --diff-del-sign:  #ef4444;
+
+  --hunk-bg:        rgba(103, 232, 249, 0.06);
+  --hunk-fg:        #67e8f9;
+
+  --shadow-soft:    0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+
+  --font-sans:      "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display:   "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  --font-mono:      "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --radius:         6px;
+  --radius-lg:      10px;
+
+  color-scheme: dark;
 }
+
+[data-theme="paper"] {
+  --bg:             #faf7f1;
+  --bg-elevated:    #f5efe0;
+  --surface:        #fffefa;
+  --surface-hover:  #f5efe0;
+  --border:         #ede5d2;
+  --border-strong:  #d6cdb3;
+
+  --fg:             #1c1917;
+  --fg-muted:       #78716c;
+  --fg-subtle:      #a8a29e;
+
+  --accent:         #c2410c;
+  --accent-fg:      #faf7f1;
+  --accent-soft:    rgba(194, 65, 12, 0.10);
+
+  --diff-add-bg:    #ecfdf5;
+  --diff-add-fg:    #15803d;
+  --diff-add-sign:  #15803d;
+  --diff-del-bg:    #fef2f2;
+  --diff-del-fg:    #b91c1c;
+  --diff-del-sign:  #b91c1c;
+
+  --hunk-bg:        rgba(194, 65, 12, 0.07);
+  --hunk-fg:        #9a3412;
+
+  --shadow-soft:    0 1px 2px rgba(28, 25, 23, 0.04), 0 8px 24px -12px rgba(28, 25, 23, 0.12);
+
+  --font-sans:      "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display:   "Fraunces", "Iowan Old Style", Georgia, serif;
+  --font-mono:      "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --radius:         8px;
+  --radius-lg:      12px;
+
+  color-scheme: light;
+}
+
+[data-theme="aperture"] {
+  --bg:             #f7f7f5;
+  --bg-elevated:    #ffffff;
+  --surface:        #ffffff;
+  --surface-hover:  #f5f5f4;
+  --border:         #e7e5e4;
+  --border-strong:  #d6d3d1;
+
+  --fg:             #0c0a09;
+  --fg-muted:       #57534e;
+  --fg-subtle:      #a8a29e;
+
+  --accent:         #b45309;
+  --accent-fg:      #ffffff;
+  --accent-soft:    rgba(180, 83, 9, 0.10);
+
+  --diff-add-bg:    #fefce8;
+  --diff-add-fg:    #713f12;
+  --diff-add-sign:  #b45309;
+  --diff-del-bg:    #fafaf9;
+  --diff-del-fg:    #a8a29e;
+  --diff-del-sign:  #d6d3d1;
+
+  --hunk-bg:        rgba(180, 83, 9, 0.06);
+  --hunk-fg:        #b45309;
+
+  --shadow-soft:    0 1px 2px rgba(12, 10, 9, 0.03), 0 12px 32px -12px rgba(12, 10, 9, 0.10);
+
+  --font-sans:      "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display:   "Instrument Serif", "Apple Garamond", Garamond, serif;
+  --font-mono:      "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --radius:         6px;
+  --radius-lg:      10px;
+
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* Thin scrollbars tinted by the active theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
