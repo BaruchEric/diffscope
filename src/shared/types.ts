@@ -124,3 +124,18 @@ export interface BrowseResult {
   /** Parent directory, or null if at filesystem root. */
   parent: string | null;
 }
+
+export interface BlameLine {
+  /** 1-based line number in the HEAD version of the file. */
+  lineNumber: number;
+  /** Full 40-char sha. */
+  sha: string;
+  /** First 7 chars of sha. */
+  shaShort: string;
+  /** Commit author name. */
+  author: string;
+  /** ISO 8601 author time. */
+  authorTimeIso: string;
+  /** One-line commit summary. */
+  summary: string;
+}

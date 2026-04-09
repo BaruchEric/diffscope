@@ -6,6 +6,11 @@ import { homedir } from "node:os";
 import { createRepo, GitError, type Repo } from "./repo";
 import { createEventHub, type EventHub } from "./events";
 import { addRecent, loadRecents, removeRecent } from "./recents";
+import {
+  blameFile,
+  getCachedBlame,
+  setCachedBlame,
+} from "./blame";
 
 export interface HttpServerOptions {
   repoPath: string | null;
@@ -72,6 +77,37 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
         return json(diff);
       } catch (err) {
         return errorResponse(err);
+      }
+    }
+
+    if (pathname === "/api/blame") {
+      if (!repo) return json({ error: "no repo loaded" }, 400);
+      const path = url.searchParams.get("path");
+      if (!path) return json({ error: "path required" }, 400);
+      // Reject absolute paths and parent traversals — same rule as diff.
+      if (path.startsWith("/") || path.includes("..")) {
+        return json({ error: "invalid path" }, 400);
+      }
+      try {
+        const { spawnSync } = await import("node:child_process");
+        const headR = spawnSync("git", ["rev-parse", "HEAD"], {
+          cwd: repo.cwd,
+          encoding: "utf8",
+        });
+        if (headR.status !== 0) {
+          return json({ error: "no HEAD" }, 404);
+        }
+        const headSha = headR.stdout.trim();
+        const cached = getCachedBlame(path, headSha);
+        if (cached) return json(cached);
+        const lines = await blameFile(repo.cwd, path);
+        setCachedBlame(path, headSha, lines);
+        return json(lines);
+      } catch (err) {
+        return json(
+          { error: err instanceof Error ? err.message : String(err) },
+          404,
+        );
       }
     }
 

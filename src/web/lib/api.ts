@@ -1,4 +1,5 @@
 import type {
+  BlameLine,
   Branch,
   BrowseResult,
   Commit,
@@ -24,6 +25,8 @@ export const api = {
     fetchJson<ParsedDiff | null>(
       `/api/diff?path=${encodeURIComponent(path)}&staged=${staged}`,
     ),
+  blame: (path: string) =>
+    fetchJson<BlameLine[]>(`/api/blame?path=${encodeURIComponent(path)}`),
   log: (limit = 50, offset = 0) =>
     fetchJson<Commit[]>(`/api/log?limit=${limit}&offset=${offset}`),
   commit: (sha: string) => fetchJson<CommitDetail>(`/api/commit/${sha}`),

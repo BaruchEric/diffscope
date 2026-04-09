@@ -10,6 +10,7 @@ import type {
 } from "../shared/types";
 import type { Repo } from "./repo";
 import { GitError } from "./repo";
+import { invalidateBlameCache } from "./blame";
 import { startWatcher, type WatcherEvent, type WatcherHandle } from "./watcher";
 
 type Subscriber = (event: SseEvent) => void;
@@ -101,6 +102,7 @@ export function createEventHub(repo: Repo): EventHub {
         await refreshStatus({ withDiffs: true, pathsToDiff: event.paths });
         break;
       case "head-changed":
+        invalidateBlameCache();
         await refreshRepoInfo();
         await refreshStatus({ withDiffs: false });
         emit({
