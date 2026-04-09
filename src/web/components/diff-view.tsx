@@ -10,6 +10,9 @@ interface Props {
 const LARGE_HUNK_LINE_THRESHOLD = 5000;
 
 export function DiffView({ diff, loading }: Props) {
+  // All hooks must run unconditionally on every render (Rules of Hooks).
+  const [userExpanded, setUserExpanded] = useState(false);
+
   if (loading) {
     return <div className="p-4 text-neutral-500">Loading diff…</div>;
   }
@@ -30,8 +33,8 @@ export function DiffView({ diff, loading }: Props) {
 
   const totalLines = diff.hunks.reduce((n, h) => n + h.lines.length, 0);
   const isLarge = totalLines > LARGE_HUNK_LINE_THRESHOLD;
+  const expanded = !isLarge || userExpanded;
 
-  const [expanded, setExpanded] = useState(!isLarge);
   if (isLarge && !expanded) {
     return (
       <div className="p-4">
@@ -39,7 +42,7 @@ export function DiffView({ diff, loading }: Props) {
           Large diff ({totalLines} lines) — collapsed by default.
         </p>
         <button
-          onClick={() => setExpanded(true)}
+          onClick={() => setUserExpanded(true)}
           className="mt-2 rounded bg-neutral-200 px-3 py-1 text-sm dark:bg-neutral-800"
         >
           Expand anyway
