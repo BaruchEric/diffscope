@@ -8,6 +8,43 @@ interface Recent {
   lastOpenedAt: string;
 }
 
+function Breadcrumb({
+  path,
+  onNavigate,
+}: {
+  path: string;
+  onNavigate: (path: string) => void | Promise<void>;
+}) {
+  // Split absolute path into clickable segments. e.g. /Users/eric/proj →
+  // [/, Users, eric, proj] each linked to its full prefix.
+  const parts = path.split("/").filter((p) => p.length > 0);
+  const segments = parts.map((part, i) => ({
+    label: part,
+    path: "/" + parts.slice(0, i + 1).join("/"),
+  }));
+  return (
+    <nav className="flex min-w-0 items-center gap-1 truncate font-mono">
+      <button
+        onClick={() => void onNavigate("/")}
+        className="text-blue-600 hover:underline"
+      >
+        /
+      </button>
+      {segments.map((s, i) => (
+        <span key={s.path} className="flex items-center gap-1">
+          {i > 0 && <span className="text-neutral-400">/</span>}
+          <button
+            onClick={() => void onNavigate(s.path)}
+            className="text-blue-600 hover:underline"
+          >
+            {s.label}
+          </button>
+        </span>
+      ))}
+    </nav>
+  );
+}
+
 export function Picker() {
   const [recents, setRecents] = useState<Recent[]>([]);
   const [browse, setBrowse] = useState<BrowseResult | null>(null);
@@ -88,12 +125,12 @@ export function Picker() {
         </div>
         {browse && (
           <div className="rounded border border-neutral-200 dark:border-neutral-800">
-            <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-800 dark:bg-neutral-900">
-              <span className="truncate font-mono text-xs">{browse.path}</span>
+            <div className="flex items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-3 py-2 text-xs dark:border-neutral-800 dark:bg-neutral-900">
+              <Breadcrumb path={browse.path} onNavigate={navigateTo} />
               {browse.parent && (
                 <button
                   onClick={() => void navigateTo(browse.parent!)}
-                  className="text-xs text-blue-600 hover:underline"
+                  className="shrink-0 text-blue-600 hover:underline"
                 >
                   ↑ Parent
                 </button>
