@@ -5,6 +5,7 @@ export function StatusBar() {
   const status = useStore((s) => s.status);
   const branches = useStore((s) => s.branches);
   const watcherDown = useStore((s) => s.watcherDown);
+  const paused = useStore((s) => s.paused);
 
   const current = branches.find((b) => b.isCurrent);
   const staged = status.filter((f) => !f.isUntracked && f.staged).length;
@@ -16,7 +17,7 @@ export function StatusBar() {
       <span className="flex items-center gap-1">
         <span
           className={`live-dot inline-block h-1.5 w-1.5 rounded-full bg-accent ${
-            watcherDown ? "opacity-50" : ""
+            paused || watcherDown ? "paused opacity-50" : ""
           }`}
         />
         {watcherDown ? "live updates off" : "live"}
