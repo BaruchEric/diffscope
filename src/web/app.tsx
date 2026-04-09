@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { Layout } from "./components/layout";
 import { WorkingTreeTab } from "./tabs/working-tree";
+import { HistoryTab } from "./tabs/history";
+import { BranchesTab } from "./tabs/branches";
+import { StashesTab } from "./tabs/stashes";
 import { useStore } from "./store";
 
 export function App() {
@@ -25,9 +28,9 @@ export function App() {
   return (
     <Layout>
       {tab === "working-tree" && <WorkingTreeTab />}
-      {tab !== "working-tree" && (
-        <div className="p-4 text-neutral-500">{tab} (not yet implemented)</div>
-      )}
+      {tab === "history" && <HistoryTab />}
+      {tab === "branches" && <BranchesTab />}
+      {tab === "stashes" && <StashesTab />}
     </Layout>
   );
 }
