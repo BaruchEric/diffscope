@@ -4,13 +4,22 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSettings } from "../settings";
 
-const MIN_WIDTH = 180;
+const MIN_WIDTH = 160;
 const MAX_FRACTION = 0.4;
 const DEFAULT_WIDTH = 320;
+// Below this viewport, the file-list pane should be allowed to collapse to
+// a very tight width so the diff area isn't completely crowded out.
+const NARROW_VIEWPORT = 720;
+const NARROW_MIN_WIDTH = 120;
+
+function effectiveMin(): number {
+  return window.innerWidth < NARROW_VIEWPORT ? NARROW_MIN_WIDTH : MIN_WIDTH;
+}
 
 function clamp(px: number): number {
-  const max = Math.max(MIN_WIDTH + 100, Math.floor(window.innerWidth * MAX_FRACTION));
-  return Math.min(Math.max(px, MIN_WIDTH), max);
+  const min = effectiveMin();
+  const max = Math.max(min + 80, Math.floor(window.innerWidth * MAX_FRACTION));
+  return Math.min(Math.max(px, min), max);
 }
 
 export function PaneSplit({

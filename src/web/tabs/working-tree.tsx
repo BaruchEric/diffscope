@@ -9,7 +9,14 @@ export function WorkingTreeTab() {
   return (
     <PaneSplit
       left={<FileList />}
-      right={<DiffView diff={focusedDiff} loading={focusedPath !== null && focusedDiff === null} />}
+      right={
+        <div className="h-full overflow-auto">
+          <DiffView
+            diff={focusedDiff}
+            loading={focusedPath !== null && focusedDiff === null}
+          />
+        </div>
+      }
     />
   );
 }

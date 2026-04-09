@@ -10,6 +10,7 @@ export function HistoryTab() {
   const focused = useStore((s) => s.focusedCommitSha);
   const focusCommit = useStore((s) => s.focusCommit);
   const [query, setQuery] = useState("");
+  const [detailCollapsed, setDetailCollapsed] = useState(false);
 
   useEffect(() => {
     void loadLog();
@@ -28,8 +29,8 @@ export function HistoryTab() {
   const { detail, loading } = useCommitDetail(focused);
 
   return (
-    <div className="grid h-full grid-cols-[380px_1fr]">
-      <div className="flex flex-col border-r border-neutral-200 dark:border-neutral-800">
+    <div className="grid h-full grid-cols-[220px_1fr] min-[900px]:grid-cols-[300px_1fr] min-[1200px]:grid-cols-[380px_1fr]">
+      <div className="flex min-w-0 flex-col border-r border-neutral-200 dark:border-neutral-800">
         <div className="border-b border-neutral-200 p-2 dark:border-neutral-800">
           <input
             value={query}
@@ -60,16 +61,28 @@ export function HistoryTab() {
           ))}
         </div>
       </div>
-      <div className="flex flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-col overflow-hidden">
         {detail && (
-          <div className="border-b border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="mb-1 text-base font-semibold">{detail.subject}</div>
-            {detail.body && (
-              <pre className="mb-2 whitespace-pre-wrap text-xs text-neutral-700 dark:text-neutral-300">
+          <div className="flex shrink-0 flex-col border-b border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex items-start gap-2 px-4 pt-3">
+              <button
+                onClick={() => setDetailCollapsed((v) => !v)}
+                className="mt-0.5 rounded px-1 text-xs text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+                title={detailCollapsed ? "Expand details" : "Collapse details"}
+                aria-expanded={!detailCollapsed}
+              >
+                {detailCollapsed ? "▸" : "▾"}
+              </button>
+              <div className="min-w-0 flex-1 truncate text-base font-semibold">
+                {detail.subject}
+              </div>
+            </div>
+            {!detailCollapsed && detail.body && (
+              <pre className="mx-4 mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded border border-neutral-200 bg-white p-2 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300">
                 {detail.body}
               </pre>
             )}
-            <div className="flex items-center gap-3 text-xs text-neutral-500">
+            <div className="flex items-center gap-3 px-4 pb-3 pt-2 text-xs text-neutral-500">
               <button
                 onClick={() => void navigator.clipboard.writeText(detail.sha)}
                 className="rounded bg-neutral-200 px-2 py-0.5 font-mono hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700"

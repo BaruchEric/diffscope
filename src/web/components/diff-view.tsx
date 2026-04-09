@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import type { BlameLine, DiffLine, ParsedDiff } from "@shared/types";
 import { getHighlighter, langFromPath } from "../lib/highlight";
 import { escapeHtml } from "../lib/html";
@@ -16,15 +16,34 @@ interface Props {
 }
 
 const LARGE_HUNK_LINE_THRESHOLD = 5000;
+// Two side-by-side code panes each need ~400px to be legible, plus gutters.
+// Measured from DiffView's own container, not the viewport, because the
+// file-list pane can eat 300+px of the window.
+const SPLIT_MIN_CONTAINER_WIDTH = 900;
 
 export function DiffView({ diff, loading }: Props) {
-  // All hooks must run unconditionally on every render (Rules of Hooks).
   const [userExpanded, setUserExpanded] = useState(false);
   const mode = useStore((s) => s.diffMode);
   const focusedPath = useStore((s) => s.focusedPath);
   const blameOnFor = useStore((s) => s.blameOnFor);
   const blameCache = useStore((s) => s.blameCache);
   const repo = useStore((s) => s.repo);
+
+  // Callback ref because the outer <div> only mounts after the loading/empty
+  // early returns — the effect re-runs when the element attaches.
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
+  const [containerNarrow, setContainerNarrow] = useState(
+    () => window.innerWidth < SPLIT_MIN_CONTAINER_WIDTH + 320,
+  );
+  useEffect(() => {
+    if (!containerEl) return;
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      setContainerNarrow(width > 0 && width < SPLIT_MIN_CONTAINER_WIDTH);
+    });
+    ro.observe(containerEl);
+    return () => ro.disconnect();
+  }, [containerEl]);
 
   if (loading) {
     return <div className="p-4 text-neutral-500">Loading diff…</div>;
@@ -75,13 +94,14 @@ export function DiffView({ diff, loading }: Props) {
   const blameLines = blameKey ? blameCache.get(blameKey) : undefined;
   const absPathForEditor =
     isFocused && repo ? `${repo.root}/${diff.path}` : null;
+  // Force unified when too narrow, but keep the user's preference so widening
+  // the window flips split back automatically.
+  const effectiveMode = containerNarrow ? "unified" : mode;
 
   return (
-    <div className="h-full overflow-auto font-mono text-[13px]">
-      <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900">
-        <span>
-          {diff.oldPath && diff.oldPath !== diff.path ? `${diff.oldPath} → ${diff.path}` : diff.path}
-        </span>
+    <div ref={setContainerEl} className="font-mono text-[13px]">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-y border-neutral-300 bg-neutral-200/95 px-4 py-2 text-sm backdrop-blur dark:border-neutral-700 dark:bg-neutral-800/95">
+        <FilePathLabel path={diff.path} oldPath={diff.oldPath} />
         <DiffViewHeaderControls diff={diff} />
       </div>
       {diff.hunks.map((h) => (
@@ -92,7 +112,7 @@ export function DiffView({ diff, loading }: Props) {
           <div className="bg-cyan-50 px-3 py-0.5 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300">
             {h.header}
           </div>
-          {mode === "unified" ? (
+          {effectiveMode === "unified" ? (
             <HunkLines
               path={diff.path}
               lines={h.lines}
@@ -106,6 +126,38 @@ export function DiffView({ diff, loading }: Props) {
         </div>
       ))}
     </div>
+  );
+}
+
+function FilePathLabel({ path, oldPath }: { path: string; oldPath?: string }) {
+  return (
+    <span className="min-w-0 flex-1 truncate font-mono">
+      {oldPath && oldPath !== path && (
+        <>
+          <PathParts path={oldPath} muted />
+          <span className="mx-2 text-neutral-500">→</span>
+        </>
+      )}
+      <PathParts path={path} />
+    </span>
+  );
+}
+
+function PathParts({ path, muted }: { path: string; muted?: boolean }) {
+  const slash = path.lastIndexOf("/");
+  const dir = slash >= 0 ? path.slice(0, slash + 1) : "";
+  const name = slash >= 0 ? path.slice(slash + 1) : path;
+  const dirClass = muted
+    ? "text-neutral-400 dark:text-neutral-600"
+    : "text-neutral-500 dark:text-neutral-400";
+  const nameClass = muted
+    ? "text-neutral-500 line-through dark:text-neutral-500"
+    : "font-semibold text-neutral-900 dark:text-neutral-100";
+  return (
+    <>
+      {dir && <span className={dirClass}>{dir}</span>}
+      <span className={nameClass}>{name}</span>
+    </>
   );
 }
 
@@ -147,21 +199,85 @@ interface SplitRow {
   right: DiffLine | null;
 }
 
-function SplitHunk({ path, lines }: { path: string; lines: DiffLine[] }) {
-  // Memoize the row pairing so re-renders (e.g. from unrelated store updates)
-  // don't rebuild `rows` and hand new array identities to `SplitColumn`,
-  // which in turn would fire `useHighlightedTexts` effects unnecessarily.
+const SPLIT_CELL_CLASS =
+  "overflow-hidden whitespace-pre pr-2 align-top [&_pre]:inline [&_pre]:!bg-transparent [&_code]:!bg-transparent";
+const SPLIT_GUTTER_CLASS =
+  "select-none px-2 text-right align-top text-neutral-400";
+const SPLIT_EMPTY_BG = "bg-neutral-50 dark:bg-neutral-900/40";
+
+function sideBg(line: DiffLine | null, kind: "del" | "add"): string {
+  if (!line) return SPLIT_EMPTY_BG;
+  if (line.kind === kind) {
+    return kind === "del"
+      ? "bg-red-100 dark:bg-red-900"
+      : "bg-green-100 dark:bg-green-900";
+  }
+  return "";
+}
+
+// Single table (not two side-by-side) so left/right cells in a row share
+// height via normal table row-height rules. `table-fixed` + colgroup pins the
+// two text columns to 50/50; without it, auto layout creates a dead gap when
+// one side's lines are longer than the other. Long lines clip inside each
+// cell — users can switch to unified view to read them.
+const SplitHunk = memo(function SplitHunk({
+  path,
+  lines,
+}: {
+  path: string;
+  lines: DiffLine[];
+}) {
   const rows = useMemo(() => pairRows(lines), [lines]);
-  const leftEntries = useMemo(() => rows.map((r) => r.left), [rows]);
-  const rightEntries = useMemo(() => rows.map((r) => r.right), [rows]);
+  const leftTexts = useMemo(() => rows.map((r) => r.left?.text ?? ""), [rows]);
+  const rightTexts = useMemo(() => rows.map((r) => r.right?.text ?? ""), [rows]);
+  const leftHighlighted = useHighlightedTexts(path, leftTexts);
+  const rightHighlighted = useHighlightedTexts(path, rightTexts);
 
   return (
-    <div className="grid grid-cols-2 divide-x divide-neutral-200 dark:divide-neutral-800">
-      <SplitColumn path={path} entries={leftEntries} side="left" />
-      <SplitColumn path={path} entries={rightEntries} side="right" />
-    </div>
+    <table className="w-full table-fixed border-collapse">
+      <colgroup>
+        <col style={{ width: "3rem" }} />
+        <col />
+        <col style={{ width: "3rem" }} />
+        <col />
+      </colgroup>
+      <tbody>
+        {rows.map((row, i) => {
+          const leftBg = sideBg(row.left, "del");
+          const rightBg = sideBg(row.right, "add");
+          return (
+            <tr key={i}>
+              <td className={`${SPLIT_GUTTER_CLASS} ${leftBg}`}>
+                {row.left?.oldLine ?? ""}
+              </td>
+              <td
+                className={`${SPLIT_CELL_CLASS} ${leftBg}`}
+                title={row.left?.text}
+                dangerouslySetInnerHTML={{
+                  __html:
+                    leftHighlighted?.[i] ?? escapeHtml(row.left?.text ?? ""),
+                }}
+              />
+              <td
+                className={`${SPLIT_GUTTER_CLASS} border-l border-neutral-200 dark:border-neutral-800 ${rightBg}`}
+              >
+                {row.right?.newLine ?? ""}
+              </td>
+              <td
+                className={`${SPLIT_CELL_CLASS} ${rightBg}`}
+                title={row.right?.text}
+                dangerouslySetInnerHTML={{
+                  __html:
+                    rightHighlighted?.[i] ?? escapeHtml(row.right?.text ?? ""),
+                }}
+              />
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
-}
+});
 
 function pairRows(lines: DiffLine[]): SplitRow[] {
   const rows: SplitRow[] = [];
@@ -193,49 +309,6 @@ function pairRows(lines: DiffLine[]): SplitRow[] {
     }
   }
   return rows;
-}
-
-function SplitColumn({
-  path,
-  entries,
-  side,
-}: {
-  path: string;
-  entries: (DiffLine | null)[];
-  side: "left" | "right";
-}) {
-  const texts = useMemo(() => entries.map((e) => e?.text ?? ""), [entries]);
-  const highlighted = useHighlightedTexts(path, texts);
-  return (
-    <table className="w-max min-w-full border-collapse">
-      <tbody>
-        {entries.map((e, i) => {
-          const bg =
-            !e
-              ? "bg-neutral-50 dark:bg-neutral-900/40"
-              : e.kind === "del"
-              ? "bg-red-100 dark:bg-red-900"
-              : e.kind === "add"
-              ? "bg-green-100 dark:bg-green-900"
-              : "";
-          const num = side === "left" ? e?.oldLine : e?.newLine;
-          return (
-            <tr key={i} className={bg}>
-              <td className="w-12 select-none px-2 text-right align-top text-neutral-400">
-                {num ?? ""}
-              </td>
-              <td
-                className="whitespace-pre pr-2 align-top [&_pre]:inline [&_pre]:!bg-transparent [&_code]:!bg-transparent"
-                dangerouslySetInnerHTML={{
-                  __html: highlighted?.[i] ?? escapeHtml(e?.text ?? ""),
-                }}
-              />
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  );
 }
 
 function HunkLines({
