@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Layout } from "./components/layout";
 import { Picker } from "./components/picker";
 import { Shortcuts } from "./components/shortcuts";
+import { Toasts } from "./components/toasts";
 import { WorkingTreeTab } from "./tabs/working-tree";
 import { HistoryTab } from "./tabs/history";
 import { BranchesTab } from "./tabs/branches";
@@ -24,6 +25,7 @@ export function App() {
       <>
         <Picker />
         <Shortcuts />
+        <Toasts />
       </>
     );
 
@@ -36,6 +38,7 @@ export function App() {
         {tab === "stashes" && <StashesTab />}
       </Layout>
       <Shortcuts />
+      <Toasts />
     </>
   );
 }

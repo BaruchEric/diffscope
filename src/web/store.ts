@@ -14,6 +14,12 @@ import { openSseStream, type SseClient } from "./lib/sse-client";
 export type Tab = "working-tree" | "history" | "branches" | "stashes";
 export type DiffMode = "unified" | "split";
 
+export interface Toast {
+  id: number;
+  kind: "warning" | "error";
+  message: string;
+}
+
 interface StoreState {
   repo: RepoInfo | null;
   repoLoaded: boolean;
@@ -31,6 +37,8 @@ interface StoreState {
   focusedStashIndex: number | null;
   watcherDown: boolean;
   error: string | null;
+  toasts: Toast[];
+  dismissToast: (id: number) => void;
   sse: SseClient | null;
 
   setTab: (tab: Tab) => void;
@@ -61,6 +69,9 @@ export const useStore = create<StoreState>((set, get) => ({
   focusedStashIndex: null,
   watcherDown: false,
   error: null,
+  toasts: [],
+  dismissToast: (id) =>
+    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   sse: null,
 
   setTab: (tab) => {
@@ -177,10 +188,21 @@ function handleEvent(
       set({ watcherDown: false });
       break;
     case "repo-error":
-      set({ error: event.reason });
+      set({
+        error: event.reason,
+        toasts: [
+          ...get().toasts,
+          { id: Date.now(), kind: "error", message: event.reason },
+        ],
+      });
       break;
     case "warning":
-      // Could surface as toast later
+      set({
+        toasts: [
+          ...get().toasts,
+          { id: Date.now() + Math.random(), kind: "warning", message: event.message },
+        ],
+      });
       break;
   }
 }
