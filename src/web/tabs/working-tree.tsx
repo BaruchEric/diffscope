@@ -1,16 +1,19 @@
 import { FileList } from "../components/file-list";
 import { DiffView } from "../components/diff-view";
+import { PaneSplit } from "../components/pane-split";
 import { useStore } from "../store";
 
 export function WorkingTreeTab() {
   const focusedDiff = useStore((s) => s.focusedDiff);
   const focusedPath = useStore((s) => s.focusedPath);
   return (
-    <div className="grid h-full grid-cols-[320px_1fr]">
-      <FileList />
-      <div className="overflow-hidden">
-        <DiffView diff={focusedDiff} loading={focusedPath !== null && focusedDiff === null} />
-      </div>
-    </div>
+    <PaneSplit
+      left={<FileList />}
+      right={
+        <div className="h-full overflow-hidden">
+          <DiffView diff={focusedDiff} loading={focusedPath !== null && focusedDiff === null} />
+        </div>
+      }
+    />
   );
 }
