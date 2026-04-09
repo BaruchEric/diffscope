@@ -1,6 +1,7 @@
 // src/server/events.ts
 import type {
   Branch,
+  Commit,
   FileStatus,
   ParsedDiff,
   RepoInfo,
@@ -49,19 +50,16 @@ export function createEventHub(repo: Repo): EventHub {
 
   const refreshRepoInfo = async () => {
     try {
-      const [headSha, branch] = await Promise.all([
-        repo.getRepoRoot().then(() => repo.getLog({ limit: 1, offset: 0 }).then((c) => c[0]?.sha ?? "")),
-        Promise.resolve(null).then(async () => {
-          try {
-            const branches = await repo.getBranches();
-            branchesSnapshot = branches;
-            return branches.find((b) => b.isCurrent)?.name ?? null;
-          } catch {
-            return null;
-          }
-        }),
+      const [latestCommits, branches] = await Promise.all([
+        repo.getLog({ limit: 1, offset: 0 }).catch(() => [] as Commit[]),
+        repo.getBranches().catch(() => [] as Branch[]),
       ]);
-      repoInfo = { root: repo.cwd, headSha, currentBranch: branch };
+      branchesSnapshot = branches;
+      repoInfo = {
+        root: repo.cwd,
+        headSha: latestCommits[0]?.sha ?? "",
+        currentBranch: branches.find((b) => b.isCurrent)?.name ?? null,
+      };
     } catch (err) {
       if (err instanceof GitError) emit({ type: "warning", message: err.stderr });
     }
