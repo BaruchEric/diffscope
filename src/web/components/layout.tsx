@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useStore, type Tab } from "../store";
+import { StatusBar } from "./status-bar";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "working-tree", label: "Working Tree" },
@@ -61,6 +62,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main className="flex-1 overflow-hidden">{children}</main>
+      <StatusBar />
     </div>
   );
 }
