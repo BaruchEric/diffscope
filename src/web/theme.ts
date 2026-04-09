@@ -1,39 +1,35 @@
 // src/web/theme.ts
-// Applies theme to the document root.
-// `system` follows OS at runtime.
-import type { Theme } from "./settings";
+// Applies the active theme to the document root.
+// `auto` follows OS preference at runtime; all other values are concrete.
+import { resolveThemeId, type ThemeId } from "./settings";
 
 let mediaQuery: MediaQueryList | null = null;
 let mediaListener: ((e: MediaQueryListEvent) => void) | null = null;
 
-function resolveSystem(): "light" | "dark" {
-  if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-function writeAttribute(resolved: "light" | "dark"): void {
+function writeAttribute(resolved: Exclude<ThemeId, "auto">): void {
   if (typeof document === "undefined") return;
   document.documentElement.setAttribute("data-theme", resolved);
 }
 
-export function applyTheme(theme: Theme): void {
-  // Detach any prior system listener — we'll re-attach only if needed.
+export function applyTheme(id: ThemeId): void {
+  // Detach any prior system listener — we'll re-attach only if still `auto`.
   if (mediaQuery && mediaListener) {
     mediaQuery.removeEventListener("change", mediaListener);
     mediaListener = null;
     mediaQuery = null;
   }
 
-  if (theme === "system") {
-    writeAttribute(resolveSystem());
-    if (typeof window !== "undefined") {
-      mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      mediaListener = (e) => writeAttribute(e.matches ? "dark" : "light");
-      mediaQuery.addEventListener("change", mediaListener);
+  if (id === "auto") {
+    if (typeof window === "undefined") {
+      writeAttribute("midnight");
+      return;
     }
+    mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    writeAttribute(resolveThemeId("auto", mediaQuery.matches));
+    mediaListener = (e) => writeAttribute(resolveThemeId("auto", e.matches));
+    mediaQuery.addEventListener("change", mediaListener);
     return;
   }
-  writeAttribute(theme);
+
+  writeAttribute(id);
 }

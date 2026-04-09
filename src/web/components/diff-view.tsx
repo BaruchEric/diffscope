@@ -3,7 +3,7 @@ import type { BlameLine, DiffLine, ParsedDiff } from "@shared/types";
 import { getHighlighter, langFromPath } from "../lib/highlight";
 import { escapeHtml } from "../lib/html";
 import { useStore } from "../store";
-import { useSettings } from "../settings";
+import { useSettings, type ThemeId } from "../settings";
 import { BlameGutter } from "./blame-gutter";
 import {
   OpenInEditorLineIcon,
@@ -394,9 +394,12 @@ function HunkLines({
   );
 }
 
-function resolveShikiTheme(setting: "system" | "light" | "dark"): "github-dark" | "github-light" {
-  if (setting === "dark") return "github-dark";
-  if (setting === "light") return "github-light";
+function resolveShikiTheme(setting: ThemeId): "github-dark" | "github-light" {
+  // Temporary — the full shiki theme swap lands in Phase 4. Until then we
+  // collapse all concrete themes onto the existing github-{dark,light}
+  // palette and let `auto` follow the OS preference at highlight time.
+  if (setting === "midnight") return "github-dark";
+  if (setting === "paper" || setting === "aperture") return "github-light";
   const isDark =
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-color-scheme: dark)").matches;

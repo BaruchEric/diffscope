@@ -2,16 +2,18 @@
 import { useStore } from "../store";
 import {
   useSettings,
-  type Theme,
+  type ThemeId,
   type Editor,
   type DefaultTab,
   type FileListMode,
 } from "../settings";
 
-const THEMES: { value: Theme; label: string }[] = [
-  { value: "system", label: "System" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
+// Temporary — full picker rewrite lands in Task 6.1.
+const THEME_OPTIONS: { value: ThemeId; label: string }[] = [
+  { value: "auto", label: "Auto" },
+  { value: "midnight", label: "Midnight" },
+  { value: "paper", label: "Paper" },
+  { value: "aperture", label: "Aperture" },
 ];
 
 const DEFAULT_TABS: { value: DefaultTab; label: string }[] = [
@@ -76,10 +78,10 @@ export function SettingsModal() {
           <Row label="Theme">
             <select
               value={theme}
-              onChange={(e) => set({ theme: e.target.value as Theme })}
+              onChange={(e) => set({ theme: e.target.value as ThemeId })}
               className="rounded border border-neutral-300 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800"
             >
-              {THEMES.map((t) => (
+              {THEME_OPTIONS.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
                 </option>

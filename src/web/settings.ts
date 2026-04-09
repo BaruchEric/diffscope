@@ -3,7 +3,7 @@
 // One storage key, one setter, one loader.
 import { create } from "zustand";
 
-export type Theme = "system" | "light" | "dark";
+export type ThemeId = "auto" | "midnight" | "paper" | "aperture";
 export type Editor = "none" | "vscode" | "cursor" | "zed" | "idea" | "subl";
 export type FileListMode = "flat" | "tree";
 export type DefaultTab =
@@ -13,8 +13,84 @@ export type DefaultTab =
   | "branches"
   | "stashes";
 
+export interface ThemeMeta {
+  id: ThemeId;
+  label: string;
+  mode: "light" | "dark";
+  accent: string;
+  shikiTheme: string;
+  description: string;
+}
+
+// `auto` carries no visual metadata of its own — it is a pointer to
+// whichever concrete preset `applyTheme` resolves to. Code that wants to
+// render a swatch or decide a mode for `auto` must resolve it first via
+// `resolveThemeId(id)`.
+export const THEMES: ThemeMeta[] = [
+  {
+    id: "auto",
+    label: "Auto",
+    mode: "dark",
+    accent: "#67e8f9",
+    shikiTheme: "vitesse-dark",
+    description: "Follows your OS",
+  },
+  {
+    id: "midnight",
+    label: "Midnight",
+    mode: "dark",
+    accent: "#67e8f9",
+    shikiTheme: "vitesse-dark",
+    description: "Dark · refined editor",
+  },
+  {
+    id: "paper",
+    label: "Paper",
+    mode: "light",
+    accent: "#c2410c",
+    shikiTheme: "catppuccin-latte",
+    description: "Light · editorial",
+  },
+  {
+    id: "aperture",
+    label: "Aperture",
+    mode: "light",
+    accent: "#b45309",
+    shikiTheme: "rose-pine-dawn",
+    description: "Light · premium",
+  },
+];
+
+const VALID_THEME_IDS = new Set<ThemeId>(["auto", "midnight", "paper", "aperture"]);
+
+/**
+ * Migrate legacy theme values from earlier versions to the new ThemeId set.
+ * Pure function — no DOM or localStorage access. Safe to call repeatedly.
+ */
+export function migrateLegacyTheme(value: unknown): ThemeId {
+  if (typeof value !== "string") return "auto";
+  if (VALID_THEME_IDS.has(value as ThemeId)) return value as ThemeId;
+  if (value === "dark") return "midnight";
+  if (value === "light") return "paper";
+  if (value === "system") return "auto";
+  return "auto";
+}
+
+/**
+ * Resolve `auto` to a concrete theme based on the provided mediaQuery match
+ * result. The caller owns the mediaQuery — keeping this pure makes it
+ * trivially testable and safe to call during SSR.
+ */
+export function resolveThemeId(
+  id: ThemeId,
+  prefersDark: boolean,
+): Exclude<ThemeId, "auto"> {
+  if (id !== "auto") return id;
+  return prefersDark ? "midnight" : "paper";
+}
+
 export interface Settings {
-  theme: Theme;
+  theme: ThemeId;
   defaultTab: DefaultTab;
   fileListMode: FileListMode;
   editor: Editor;
@@ -28,7 +104,7 @@ export interface Settings {
 const STORAGE_KEY = "diffscope:settings:v1";
 
 const DEFAULTS: Settings = {
-  theme: "system",
+  theme: "auto",
   defaultTab: "last-used",
   fileListMode: "flat",
   editor: "none",
@@ -39,9 +115,6 @@ const DEFAULTS: Settings = {
   diffMode: "unified",
 };
 
-// Explicit allowlist of persisted keys. Using this instead of destructuring
-// the store means adding a new store method (or renaming an existing one)
-// can't accidentally leak non-data fields into localStorage.
 const SETTINGS_KEYS = Object.keys(DEFAULTS) as (keyof Settings)[];
 
 function pickSettings(state: SettingsStore): Settings {
@@ -93,7 +166,15 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   load() {
     migrateLegacyKeys();
     const stored = readStoredSettings();
-    const merged: Settings = { ...DEFAULTS, ...stored };
+    const merged: Settings = {
+      ...DEFAULTS,
+      ...stored,
+      // Migrate theme value in case stored value is from an older version
+      // (e.g., "system" / "dark" / "light" from v1 users).
+      theme: migrateLegacyTheme((stored as { theme?: unknown }).theme),
+    };
+    // Write the migrated value back so the next load is a no-op fast path.
+    writeThrough(merged);
     set({ ...merged, loaded: true });
   },
 
