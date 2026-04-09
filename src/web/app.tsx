@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Layout } from "./components/layout";
+import { WorkingTreeTab } from "./tabs/working-tree";
 import { useStore } from "./store";
 
 export function App() {
@@ -23,7 +24,10 @@ export function App() {
 
   return (
     <Layout>
-      <div className="p-4 text-neutral-500">Tab: {tab} (not yet implemented)</div>
+      {tab === "working-tree" && <WorkingTreeTab />}
+      {tab !== "working-tree" && (
+        <div className="p-4 text-neutral-500">{tab} (not yet implemented)</div>
+      )}
     </Layout>
   );
 }
