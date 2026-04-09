@@ -15,6 +15,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const togglePaused = useStore((s) => s.togglePaused);
   const watcherDown = useStore((s) => s.watcherDown);
   const repo = useStore((s) => s.repo);
+  const diffMode = useStore((s) => s.diffMode);
+  const setDiffMode = useStore((s) => s.setDiffMode);
 
   return (
     <div className="flex h-full flex-col">
@@ -44,6 +46,12 @@ export function Layout({ children }: { children: ReactNode }) {
           {watcherDown && (
             <span className="text-xs text-amber-600">⚠ Live updates off</span>
           )}
+          <button
+            onClick={() => setDiffMode(diffMode === "unified" ? "split" : "unified")}
+            className="rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
+          >
+            {diffMode === "unified" ? "Split" : "Unified"}
+          </button>
           <button
             onClick={togglePaused}
             className="rounded border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700"
