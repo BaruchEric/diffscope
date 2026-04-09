@@ -12,7 +12,8 @@
     "build:web": "vite build",
     "start": "bun run src/server/cli.ts",
     "test": "bun test",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json",
+    "lint": "oxlint"
   },
   "dependencies": {
     "@parcel/watcher": "^2.4.1",
@@ -27,6 +28,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.27",
+    "oxlint": "^1.59.0",
     "postcss": "^8.5.9",
     "tailwindcss": "^3.4",
     "typescript": "^5.6.0",
