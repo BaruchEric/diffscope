@@ -1,8 +1,17 @@
 import { spawn } from "node:child_process";
 import { parseDiff, parseLog, parseStatus } from "./parser";
-import type { Commit, CommitDetail, FileStatus, ParsedDiff } from "../shared/types";
+import type {
+  Branch,
+  Commit,
+  CommitDetail,
+  FileStatus,
+  ParsedDiff,
+  Stash,
+} from "../shared/types";
 
 const LOG_FORMAT = "%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%D%x00%s%x00%b%x1e";
+const BRANCH_FORMAT =
+  "%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:track)%00%(objectname)%00%(contents:subject)";
 
 export class GitError extends Error {
   constructor(
@@ -37,6 +46,8 @@ export interface Repo {
   getFileDiff(path: string, opts: { staged: boolean }): Promise<ParsedDiff | null>;
   getLog(opts: { limit: number; offset: number }): Promise<Commit[]>;
   getCommit(sha: string): Promise<CommitDetail>;
+  getBranches(): Promise<Branch[]>;
+  getStashes(): Promise<Stash[]>;
 }
 
 export function createRepo(cwd: string): Repo {
@@ -78,6 +89,63 @@ export function createRepo(cwd: string): Repo {
       const diff = parseDiff(diffRaw);
       // Extract body from metaRaw's last field (empty string in fixtures — body came from log format's %b)
       return { ...meta, body: "", diff };
+    },
+    async getBranches(): Promise<Branch[]> {
+      const out = await runGit(cwd, [
+        "for-each-ref",
+        "--format=" + BRANCH_FORMAT,
+        "refs/heads",
+        "refs/remotes",
+      ]);
+      const branches: Branch[] = [];
+      for (const line of out.split("\n")) {
+        if (!line) continue;
+        const parts = line.split("\x00");
+        const name = parts[0] ?? "";
+        const head = parts[1] ?? " ";
+        const upstream = parts[2] || undefined;
+        const track = parts[3] ?? "";
+        const tipSha = parts[4] ?? "";
+        const tipSubject = parts[5] ?? "";
+        const ahead = /ahead (\d+)/.exec(track)?.[1];
+        const behind = /behind (\d+)/.exec(track)?.[1];
+        branches.push({
+          name,
+          isCurrent: head === "*",
+          isRemote: name.startsWith("origin/") || name.includes("/"),
+          upstream,
+          ahead: ahead ? parseInt(ahead, 10) : 0,
+          behind: behind ? parseInt(behind, 10) : 0,
+          tipSha,
+          tipSubject,
+        });
+      }
+      return branches;
+    },
+    async getStashes(): Promise<Stash[]> {
+      const out = await runGit(cwd, [
+        "stash",
+        "list",
+        "--format=%H%x00%gd%x00%aI%x00%s",
+      ]);
+      const stashes: Stash[] = [];
+      for (const line of out.split("\n")) {
+        if (!line) continue;
+        const [sha, refname, date, message] = line.split("\x00") as [
+          string,
+          string,
+          string,
+          string,
+        ];
+        const idxMatch = /stash@\{(\d+)\}/.exec(refname);
+        stashes.push({
+          index: idxMatch ? parseInt(idxMatch[1]!, 10) : 0,
+          sha,
+          date,
+          message,
+        });
+      }
+      return stashes;
     },
   };
 }

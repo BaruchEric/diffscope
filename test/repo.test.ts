@@ -96,4 +96,35 @@ describe("repo", () => {
     expect(detail.subject).toBe("second");
     expect(detail.diff.length).toBeGreaterThan(0);
   });
+
+  test("getBranches returns local and remote branches with upstream info", async () => {
+    temp.write("a.ts", "1\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+    temp.git("branch", "feature");
+
+    const repo = createRepo(temp.root);
+    const branches = await repo.getBranches();
+    const names = branches.map((b) => b.name).sort();
+    expect(names).toContain("main");
+    expect(names).toContain("feature");
+    const current = branches.find((b) => b.isCurrent);
+    expect(current?.name).toBe("main");
+  });
+
+  test("getStashes returns stashes in order", async () => {
+    temp.write("a.ts", "1\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+    temp.write("a.ts", "work in progress\n");
+    temp.git("stash", "push", "-m", "wip1");
+    temp.write("a.ts", "more\n");
+    temp.git("stash", "push", "-m", "wip2");
+
+    const repo = createRepo(temp.root);
+    const stashes = await repo.getStashes();
+    expect(stashes).toHaveLength(2);
+    expect(stashes[0]!.message).toContain("wip2");
+    expect(stashes[1]!.message).toContain("wip1");
+  });
 });
