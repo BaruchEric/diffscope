@@ -10,6 +10,10 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-09-embedded-terminal-design.md`
 
+> **Architectural pivot (applied during Task 1):** The Task 1 spike found that `node-pty@1.1.0` fails under Bun 1.2.17 with `ENXIO` on the PTY master read (Bun's I/O loop and `node-pty`'s internal read path disagree). It works perfectly under Node.js. **The workaround:** `pty.ts` does NOT import `node-pty` directly. Instead it spawns `src/server/terminal/pty-host.mjs` as a Node.js child process and drives it over a line-delimited JSON protocol on stdin/stdout. Everything upstream of `pty.ts` is unchanged — the `PtyRegistry` interface is identical. The only new runtime requirement is that `node` is on `PATH` (a reasonable assumption for a developer tool). See Task 5 for the updated implementation.
+>
+> **Also applied during Task 1:** Bun's install strips the execute bit from native helper binaries. `node-pty`'s `spawn-helper` needs `+x` or spawns fail with `posix_spawnp failed`. A `postinstall` script (`scripts/postinstall-node-pty.sh`) re-applies the bit after every `bun install`.
+
 ---
 
 ## File Structure Overview
@@ -18,7 +22,8 @@
 
 | File | Responsibility |
 |---|---|
-| `src/server/terminal/pty.ts` | `PtySession` type, `PtyRegistry` class owning `Map<id, PtySession>`, spawn/write/resize/kill, ring-buffer scrollback. |
+| `src/server/terminal/pty.ts` | `PtySession` type, `PtyRegistry` owning `Map<id, PtySession>`, scrollback ring buffer, subscribers. Spawns and drives a Node.js helper child over stdin/stdout JSON. |
+| `src/server/terminal/pty-host.mjs` | Node.js helper: imports `node-pty`, reads JSON commands from stdin, emits JSON events on stdout. Runs under `node`, not `bun`. |
 | `src/server/terminal/scripts.ts` | Pure-ish script resolver: merges built-ins + `package.json` scripts + `.diffscope/scripts.json`. Returns `ScriptEntry[]`. |
 | `src/server/terminal/ws.ts` | Bun `ServerWebSocket` handler: protocol framing, multiplexes many `termId`s over one connection, wires PTY data fan-out. |
 | `src/server/terminal/index.ts` | Barrel that exports `createTerminalModule()` — a factory returning `{ registry, websocket, handleScriptsRequest, shutdown }` for `http.ts` to consume. |
