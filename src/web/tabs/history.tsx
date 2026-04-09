@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fuzzyFilter } from "../lib/fuzzy";
 import { useCommitDetail } from "../lib/use-commit-detail";
 import { DiffView } from "../components/diff-view";
-import { PaneSplitVertical } from "../components/pane-split-vertical";
+import { PaneSplit } from "../components/pane-split";
+import { ListRow } from "../components/list-row";
 import { useStore } from "../store";
 
 export function HistoryTab() {
@@ -15,7 +16,6 @@ export function HistoryTab() {
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(
     () => new Set(),
   );
-  const [lastSha, setLastSha] = useState<string | null>(null);
 
   useEffect(() => {
     void loadLog();
@@ -33,12 +33,12 @@ export function HistoryTab() {
 
   const { detail, loading } = useCommitDetail(focused);
 
-  // Reset per-file collapse state when the focused commit changes (reset
-  // during render instead of in an effect — avoids a stale flash).
-  if (detail && detail.sha !== lastSha) {
-    setLastSha(detail.sha);
+  // Reset per-file collapse state when the focused commit changes. Keying
+  // the effect on the sha (not the whole detail object) avoids unrelated
+  // resets when the commit refetches with the same sha.
+  useEffect(() => {
     setCollapsedFiles(new Set());
-  }
+  }, [detail?.sha]);
 
   const toggleFileCollapsed = useCallback((path: string) => {
     setCollapsedFiles((prev) => {
@@ -112,9 +112,9 @@ export function HistoryTab() {
     <div className="h-full overflow-auto">
       {loading && <div className="p-4 text-fg-muted">Loading commit…</div>}
       {!loading && detail &&
-        detail.diff.map((d, i) => (
+        detail.diff.map((d) => (
           <DiffView
-            key={`${detail.sha}-${i}`}
+            key={d.oldPath ? `${d.oldPath}->${d.path}` : d.path}
             diff={d}
             collapsed={collapsedFiles.has(d.path)}
             onToggleCollapsed={() => toggleFileCollapsed(d.path)}
@@ -142,27 +142,22 @@ export function HistoryTab() {
             <p className="p-3 text-xs text-fg-muted">No commits match.</p>
           )}
           {filtered.map((c) => (
-            <button
+            <ListRow
               key={c.sha}
+              selected={focused === c.sha}
               onClick={() => void focusCommit(c.sha)}
-              className={
-                "block w-full truncate px-3 py-2 text-left text-sm border-l-2 " +
-                (focused === c.sha
-                  ? "bg-surface-hover text-fg border-accent"
-                  : "text-fg-muted hover:bg-surface-hover hover:text-fg border-transparent")
-              }
             >
               <div className="truncate font-medium">{c.subject}</div>
               <div className="truncate text-xs text-fg-subtle">
                 {c.shortSha} · {c.author} · {new Date(c.date).toLocaleString()}
               </div>
-            </button>
+            </ListRow>
           ))}
         </div>
       </div>
       <div className="flex min-h-0 flex-col overflow-hidden">
         {detail ? (
-          <PaneSplitVertical top={detailHeader} bottom={diffSection} />
+          <PaneSplit axis="y" a={detailHeader} b={diffSection} />
         ) : (
           diffSection
         )}

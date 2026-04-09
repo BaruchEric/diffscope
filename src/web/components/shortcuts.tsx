@@ -2,8 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useSettings } from "../settings";
 import { allDirPathsForTree, visibleFilePathsForTree } from "./file-tree";
+import { Modal } from "./modal";
 
 const TABS_ORDER = ["working-tree", "history", "branches", "stashes"] as const;
+type TabId = (typeof TABS_ORDER)[number];
+
+function setTab(tab: TabId): void {
+  useSettings.getState().set({ lastUsedTab: tab });
+}
 
 interface ShortcutRow {
   keys: string;
@@ -104,19 +110,19 @@ export function Shortcuts() {
         clearTimeout(gLeaderRef.current);
         gLeaderRef.current = null;
         if (e.key === "w") {
-          s.setTab("working-tree");
+          setTab("working-tree");
           return;
         }
         if (e.key === "h") {
-          s.setTab("history");
+          setTab("history");
           return;
         }
         if (e.key === "b") {
-          s.setTab("branches");
+          setTab("branches");
           return;
         }
         if (e.key === "s") {
-          s.setTab("stashes");
+          setTab("stashes");
           return;
         }
         // Unknown key after g — fall through to normal handling.
@@ -133,7 +139,8 @@ export function Shortcuts() {
         return;
       }
       if (e.key === "u") {
-        s.setDiffMode(s.diffMode === "unified" ? "split" : "unified");
+        const mode = useSettings.getState().diffMode;
+        useSettings.getState().set({ diffMode: mode === "unified" ? "split" : "unified" });
         return;
       }
       if (e.key === "t") {
@@ -158,13 +165,12 @@ export function Shortcuts() {
 
       if (e.key === "Tab") {
         e.preventDefault();
-        const currentIdx = TABS_ORDER.indexOf(
-          s.tab as (typeof TABS_ORDER)[number],
-        );
+        const currentTab = useSettings.getState().lastUsedTab;
+        const currentIdx = TABS_ORDER.indexOf(currentTab);
         const delta = e.shiftKey ? -1 : 1;
         const nextIdx =
           (currentIdx + delta + TABS_ORDER.length) % TABS_ORDER.length;
-        s.setTab(TABS_ORDER[nextIdx]!);
+        setTab(TABS_ORDER[nextIdx]!);
         return;
       }
 
@@ -187,38 +193,38 @@ export function Shortcuts() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  if (!helpOpen) return null;
   return (
-    <div
-      onClick={() => setHelpOpen(false)}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+    <Modal
+      open={helpOpen}
+      onClose={() => setHelpOpen(false)}
+      labelledBy="shortcuts-help-title"
+      ariaLabel="Keyboard shortcuts"
+      cardClassName="min-w-[420px] max-w-[560px] rounded-lg border border-border bg-bg-elevated p-6 shadow-soft"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="min-w-[420px] max-w-[560px] rounded-lg border border-border bg-bg-elevated p-6 shadow-soft"
-      >
-        <h2 className="mb-4 font-display text-lg text-fg">Keyboard shortcuts</h2>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          {SHORTCUT_HELP.map((row) => (
-            <div key={row.keys} className="contents">
-              <dt>
-                <span className="inline-block rounded border border-border bg-surface-hover px-1.5 py-0.5 font-mono text-xs text-fg">
-                  {row.keys}
-                </span>
-              </dt>
-              <dd className="text-fg-muted">{row.description}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    </div>
+      <h2 id="shortcuts-help-title" className="mb-4 font-display text-lg text-fg">
+        Keyboard shortcuts
+      </h2>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+        {SHORTCUT_HELP.map((row) => (
+          <div key={row.keys} className="contents">
+            <dt>
+              <span className="inline-block rounded border border-border bg-surface-hover px-1.5 py-0.5 font-mono text-xs text-fg">
+                {row.keys}
+              </span>
+            </dt>
+            <dd className="text-fg-muted">{row.description}</dd>
+          </div>
+        ))}
+      </dl>
+    </Modal>
   );
 }
 
 function navigateSibling(delta: 1 | -1): void {
   const s = useStore.getState();
   const mode = useSettings.getState().fileListMode;
-  if (s.tab === "working-tree") {
+  const tab = useSettings.getState().lastUsedTab;
+  if (tab === "working-tree") {
     let paths: string[] = s.status.map((f) => f.path);
     if (mode === "tree") {
       // Use all-expanded for sibling navigation so every file is reachable.
@@ -232,7 +238,7 @@ function navigateSibling(delta: 1 | -1): void {
     if (next) void s.focusFile(next);
     return;
   }
-  if (s.tab === "history") {
+  if (tab === "history") {
     const shas = s.log.map((c) => c.sha);
     if (shas.length === 0) return;
     const idx = s.focusedCommitSha ? shas.indexOf(s.focusedCommitSha) : -1;
@@ -240,7 +246,7 @@ function navigateSibling(delta: 1 | -1): void {
     if (next) void s.focusCommit(next);
     return;
   }
-  if (s.tab === "branches") {
+  if (tab === "branches") {
     const names = s.branches.map((b) => b.name);
     if (names.length === 0) return;
     const idx = s.focusedBranch ? names.indexOf(s.focusedBranch) : -1;
@@ -248,7 +254,7 @@ function navigateSibling(delta: 1 | -1): void {
     if (next) s.focusBranch(next);
     return;
   }
-  if (s.tab === "stashes") {
+  if (tab === "stashes") {
     if (s.stashes.length === 0) return;
     const cur = s.focusedStashIndex ?? -1;
     const nextIdx =

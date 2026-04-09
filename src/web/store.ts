@@ -14,7 +14,6 @@ import { openSseStream, type SseClient } from "./lib/sse-client";
 import { useSettings, getSettings } from "./settings";
 
 export type Tab = "working-tree" | "history" | "branches" | "stashes";
-export type DiffMode = "unified" | "split";
 
 export interface Toast {
   id: number;
@@ -29,11 +28,18 @@ function makeToast(kind: Toast["kind"], message: string): Toast {
   return { id: nextToastId++, kind, message };
 }
 
+// Cap the toast stack so a chatty watcher-warning storm can't balloon the
+// array (and re-spread every subscriber per push). Old toasts age out of
+// view; the user can still dismiss the survivors.
+const MAX_TOASTS = 10;
+function pushToast(toasts: Toast[], next: Toast): Toast[] {
+  const trimmed = toasts.length >= MAX_TOASTS ? toasts.slice(-(MAX_TOASTS - 1)) : toasts;
+  return [...trimmed, next];
+}
+
 interface StoreState {
   repo: RepoInfo | null;
   repoLoaded: boolean;
-  tab: Tab;
-  diffMode: DiffMode;
   paused: boolean;
   status: FileStatus[];
   focusedPath: string | null;
@@ -64,8 +70,6 @@ interface StoreState {
   openSettings: () => void;
   closeSettings: () => void;
 
-  setTab: (tab: Tab) => void;
-  setDiffMode: (mode: DiffMode) => void;
   togglePaused: () => void;
   focusFile: (path: string) => Promise<void>;
   focusCommit: (sha: string) => Promise<void>;
@@ -79,8 +83,6 @@ interface StoreState {
 export const useStore = create<StoreState>((set, get) => ({
   repo: null,
   repoLoaded: false,
-  tab: "working-tree",
-  diffMode: "unified",
   paused: false,
   status: [],
   focusedPath: null,
@@ -108,14 +110,6 @@ export const useStore = create<StoreState>((set, get) => ({
   openSettings: () => set({ settingsOpen: true }),
   closeSettings: () => set({ settingsOpen: false }),
 
-  setTab: (tab) => {
-    useSettings.getState().set({ lastUsedTab: tab });
-    set({ tab });
-  },
-  setDiffMode: (mode) => {
-    useSettings.getState().set({ diffMode: mode });
-    set({ diffMode: mode });
-  },
   togglePaused: () => set((s) => ({ paused: !s.paused })),
 
   focusFile: async (path) => {
@@ -149,22 +143,30 @@ export const useStore = create<StoreState>((set, get) => ({
 
   ensureBlameLoaded: async (path) => {
     const s = get();
-    const headSha = s.repo?.headSha ?? "";
-    const key = `${path}@${headSha}`;
-    if (s.blameCache.has(key)) return;
+    const headShaBefore = s.repo?.headSha ?? "";
+    const keyBefore = `${path}@${headShaBefore}`;
+    if (s.blameCache.has(keyBefore)) return;
     if (s.blameLoading.has(path)) return;
     const loading = new Set(s.blameLoading);
     loading.add(path);
     set({ blameLoading: loading });
     try {
       const lines = await api.blame(path);
+      // HEAD may have moved while we were awaiting — drop the result if the
+      // sha changed (a head-changed event has already cleared blameCache and
+      // we'd just be writing stale data under the old key).
+      const headShaAfter = get().repo?.headSha ?? "";
+      if (headShaAfter !== headShaBefore) return;
+      const keyAfter = `${path}@${headShaAfter}`;
       const cache = new Map(get().blameCache);
-      cache.set(key, lines);
+      // Re-check that no one else landed first for this same key (parallel
+      // loads would otherwise stomp each other's entries).
+      if (!cache.has(keyAfter)) cache.set(keyAfter, lines);
       set({ blameCache: cache });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       set({
-        toasts: [...get().toasts, makeToast("warning", `Blame failed: ${msg}`)],
+        toasts: pushToast(get().toasts, makeToast("warning", `Blame failed: ${msg}`)),
       });
       // Turn blame off for this file so we don't spin.
       const on = new Set(get().blameOnFor);
@@ -187,14 +189,27 @@ export const useStore = create<StoreState>((set, get) => ({
 
   loadLog: async () => {
     const rows = await api.log(200, 0).catch(() => [] as Commit[]);
+    // Skip the set if the result is shape-equal to what we already have —
+    // otherwise every log refresh re-renders subscribers on a no-op.
+    const prev = get().log;
+    if (
+      prev.length === rows.length &&
+      prev[0]?.sha === rows[0]?.sha &&
+      prev[prev.length - 1]?.sha === rows[rows.length - 1]?.sha
+    ) {
+      return;
+    }
     set({ log: rows });
   },
 
   initialize: async () => {
+    // Apply `defaultTab` to the persistent `lastUsedTab` so the app opens
+    // on the user's chosen default. Once initialized, everything reads
+    // `useSettings(s => s.lastUsedTab)` directly — no parallel store field.
     const s = getSettings();
-    const initialTab: Tab =
-      s.defaultTab === "last-used" ? s.lastUsedTab : s.defaultTab;
-    set({ tab: initialTab, diffMode: s.diffMode });
+    if (s.defaultTab !== "last-used" && s.defaultTab !== s.lastUsedTab) {
+      useSettings.getState().set({ lastUsedTab: s.defaultTab });
+    }
     const info = await api
       .info()
       .catch(() => ({ loaded: false }) as { loaded: boolean; root?: string });
@@ -251,11 +266,34 @@ function handleEvent(
   set: (partial: Partial<StoreState>) => void,
   get: () => StoreState,
 ): void {
-  if (get().paused) return;
+  // Pause freezes *live file churn* only — HEAD/refs/stashes updates, errors,
+  // and watcher status must still flow through so the user doesn't resume
+  // onto a silently desynced UI.
+  if (
+    get().paused &&
+    (event.type === "file-updated" ||
+      event.type === "file-removed" ||
+      event.type === "snapshot")
+  ) {
+    return;
+  }
   switch (event.type) {
-    case "snapshot":
-      set({ status: event.status, repo: event.repo });
+    case "snapshot": {
+      set({
+        status: event.status,
+        repo: event.repo,
+        branches: event.branches,
+        stashes: event.stashes,
+      });
+      // If the focused file vanished from the new snapshot, drop the focus
+      // so the user doesn't stare at a stale diff for a path that no longer
+      // exists after an external checkout/reset.
+      const focused = get().focusedPath;
+      if (focused && !event.status.some((f) => f.path === focused)) {
+        set({ focusedPath: null, focusedDiff: null });
+      }
       break;
+    }
     case "file-updated": {
       const existing = get().status;
       const idx = existing.findIndex((f) => f.path === event.path);
@@ -308,12 +346,12 @@ function handleEvent(
     case "repo-error":
       set({
         error: event.reason,
-        toasts: [...get().toasts, makeToast("error", event.reason)],
+        toasts: pushToast(get().toasts, makeToast("error", event.reason)),
       });
       break;
     case "warning":
       set({
-        toasts: [...get().toasts, makeToast("warning", event.message)],
+        toasts: pushToast(get().toasts, makeToast("warning", event.message)),
       });
       break;
   }

@@ -29,17 +29,15 @@ export function fuzzyScore(haystack: string, needle: string): number {
     return 500 - wi;
   }
 
-  // Scattered match: each needle char appears in order.
+  // Scattered match: each needle char appears in order. The loop returns
+  // -Infinity on any miss, so hitting the end means every char matched.
   let hi = 0;
-  let matched = 0;
   for (const c of n) {
     const found = h.indexOf(c, hi);
     if (found === -1) return -Infinity;
     hi = found + 1;
-    matched++;
   }
-  if (matched === n.length) return 100 - h.length * 0.01;
-  return -Infinity;
+  return 100 - h.length * 0.01;
 }
 
 export function fuzzyFilter<T>(

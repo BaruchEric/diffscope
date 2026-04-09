@@ -29,6 +29,22 @@ function mimeForPath(path: string): string {
   return MIME_BY_EXT[ext] ?? "application/octet-stream";
 }
 
+/**
+ * Reject absolute paths and any `..` segments. Repo endpoints that accept a
+ * `?path=` query parameter must run their input through this before touching
+ * the filesystem, or git could be bypassed via `/api/blob?ref=WORKDIR`.
+ */
+function isRepoRelPathSafe(path: string): boolean {
+  if (!path) return false;
+  if (path.startsWith("/")) return false;
+  if (path.includes("\0")) return false;
+  // Split on both separators to catch Windows-style traversals too.
+  for (const seg of path.split(/[\\/]/)) {
+    if (seg === "..") return false;
+  }
+  return true;
+}
+
 function parseIntParam(raw: string | null, fallback: number, min: number, max: number): number {
   if (raw === null) return fallback;
   const n = parseInt(raw, 10);
@@ -70,6 +86,22 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
     await hub.start();
   }
 
+  // Wraps repo-required endpoints: enforces that a repo is loaded and
+  // funnels any thrown error through a single error serializer. This
+  // replaces the `if (!repo) return ...; try { ... } catch (err) { ... }`
+  // boilerplate that used to wrap every handler below.
+  const withRepo = async <T>(
+    fn: (r: Repo) => Promise<T>,
+    onError?: (err: unknown) => Response,
+  ): Promise<Response> => {
+    if (!repo) return json({ error: "no repo loaded" }, 400);
+    try {
+      return json(await fn(repo));
+    } catch (err) {
+      return onError ? onError(err) : errorResponse(err);
+    }
+  };
+
   const handle = async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
     const pathname = url.pathname;
@@ -83,88 +115,55 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
     }
 
     if (pathname === "/api/status") {
-      if (!repo) return json({ error: "no repo loaded" }, 400);
-      try {
-        return json(await repo.getStatus());
-      } catch (err) {
-        return errorResponse(err);
-      }
+      return withRepo((r) => r.getStatus());
     }
 
     if (pathname === "/api/diff") {
-      if (!repo) return json({ error: "no repo loaded" }, 400);
       const path = url.searchParams.get("path");
       if (!path) return json({ error: "path required" }, 400);
+      if (!isRepoRelPathSafe(path)) return json({ error: "invalid path" }, 400);
       const staged = url.searchParams.get("staged") === "true";
-      try {
-        const diff = await repo.getFileDiff(path, { staged });
-        return json(diff);
-      } catch (err) {
-        return errorResponse(err);
-      }
+      return withRepo((r) => r.getFileDiff(path, { staged }));
     }
 
     if (pathname === "/api/blame") {
-      if (!repo) return json({ error: "no repo loaded" }, 400);
       const path = url.searchParams.get("path");
       if (!path) return json({ error: "path required" }, 400);
-      // Reject absolute paths and parent traversals — same rule as diff.
-      if (path.startsWith("/") || path.includes("..")) {
-        return json({ error: "invalid path" }, 400);
-      }
-      try {
-        const headSha = await repo.getHeadSha();
-        if (!headSha) return json({ error: "no HEAD" }, 404);
-        const cached = getCachedBlame(path, headSha);
-        if (cached) return json(cached);
-        const lines = await blameFile(repo.cwd, path);
-        setCachedBlame(path, headSha, lines);
-        return json(lines);
-      } catch (err) {
-        return json(
-          { error: err instanceof Error ? err.message : String(err) },
-          404,
-        );
-      }
+      if (!isRepoRelPathSafe(path)) return json({ error: "invalid path" }, 400);
+      return withRepo(
+        async (r) => {
+          const headSha = await r.getHeadSha();
+          if (!headSha) throw new Error("no HEAD");
+          const cached = getCachedBlame(path, headSha);
+          if (cached) return cached;
+          const lines = await blameFile(r.cwd, path);
+          setCachedBlame(path, headSha, lines);
+          return lines;
+        },
+        // Blame shells out to git blame which treats almost any failure
+        // (missing file, first-time-added line, no HEAD) as a 404 to the UI.
+        (err) =>
+          json({ error: err instanceof Error ? err.message : String(err) }, 404),
+      );
     }
 
     if (pathname === "/api/log") {
-      if (!repo) return json({ error: "no repo loaded" }, 400);
       const limit = parseIntParam(url.searchParams.get("limit"), 50, 1, 500);
       const offset = parseIntParam(url.searchParams.get("offset"), 0, 0, 100_000);
-      try {
-        return json(await repo.getLog({ limit, offset }));
-      } catch (err) {
-        return errorResponse(err);
-      }
+      return withRepo((r) => r.getLog({ limit, offset }));
     }
 
     if (pathname.startsWith("/api/commit/")) {
-      if (!repo) return json({ error: "no repo loaded" }, 400);
       const sha = pathname.slice("/api/commit/".length);
-      try {
-        return json(await repo.getCommit(sha));
-      } catch (err) {
-        return errorResponse(err);
-      }
+      return withRepo((r) => r.getCommit(sha));
     }
 
     if (pathname === "/api/branches") {
-      if (!repo) return json({ error: "no repo loaded" }, 400);
-      try {
-        return json(await repo.getBranches());
-      } catch (err) {
-        return errorResponse(err);
-      }
+      return withRepo((r) => r.getBranches());
     }
 
     if (pathname === "/api/stashes") {
-      if (!repo) return json({ error: "no repo loaded" }, 400);
-      try {
-        return json(await repo.getStashes());
-      } catch (err) {
-        return errorResponse(err);
-      }
+      return withRepo((r) => r.getStashes());
     }
 
     // SSE stream
@@ -272,19 +271,27 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
       const path = url.searchParams.get("path");
       const ref = url.searchParams.get("ref") ?? "HEAD"; // "HEAD" | "INDEX" | "WORKDIR"
       if (!path) return json({ error: "path required" }, 400);
+      if (!isRepoRelPathSafe(path)) return json({ error: "invalid path" }, 400);
       try {
-        let out: Buffer;
         if (ref === "WORKDIR") {
-          const buf = await Bun.file(`${repo.cwd}/${path}`).arrayBuffer();
-          out = Buffer.from(buf);
-        } else if (ref === "HEAD" || ref === "INDEX") {
-          out = await repo.showBlob(ref, path);
-        } else {
-          return json({ error: `invalid ref: ${ref}` }, 400);
+          // Resolve and double-check the result still lives inside repo.cwd,
+          // belt-and-braces against symlink escapes that isRepoRelPathSafe can't see.
+          const absolute = resolve(repo.cwd, path);
+          const root = resolve(repo.cwd);
+          if (absolute !== root && !absolute.startsWith(root + "/")) {
+            return json({ error: "invalid path" }, 400);
+          }
+          return new Response(Bun.file(absolute), {
+            headers: { "content-type": mimeForPath(path) },
+          });
         }
-        return new Response(new Uint8Array(out), {
-          headers: { "content-type": mimeForPath(path) },
-        });
+        if (ref === "HEAD" || ref === "INDEX") {
+          const out = await repo.showBlob(ref, path);
+          return new Response(new Uint8Array(out), {
+            headers: { "content-type": mimeForPath(path) },
+          });
+        }
+        return json({ error: `invalid ref: ${ref}` }, 400);
       } catch (err) {
         return errorResponse(err);
       }

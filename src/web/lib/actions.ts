@@ -14,7 +14,7 @@ export interface PaletteAction {
 }
 
 function switchTab(tab: Tab) {
-  useStore.getState().setTab(tab);
+  useSettings.getState().set({ lastUsedTab: tab });
 }
 
 export function buildActions(): PaletteAction[] {
@@ -48,8 +48,10 @@ export function buildActions(): PaletteAction[] {
       label: "Toggle Unified / Split Diff",
       hint: "u",
       run: () => {
-        const s = useStore.getState();
-        s.setDiffMode(s.diffMode === "unified" ? "split" : "unified");
+        const mode = useSettings.getState().diffMode;
+        useSettings
+          .getState()
+          .set({ diffMode: mode === "unified" ? "split" : "unified" });
       },
     },
     {

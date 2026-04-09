@@ -16,38 +16,54 @@ export class GitError extends Error {
 
 const BASE_FLAGS = ["-c", "core.quotepath=false"] as const;
 
-export function runGit(
+// Internal spawn helper — every public wrapper pushes stdout chunks into a
+// single Buffer array so we avoid the O(n²) string concat that the previous
+// `stdout += chunk.toString()` pattern suffered on large outputs like
+// `git show` on big commits or `git log` on deep histories.
+function spawnGit(
   cwd: string,
   args: readonly string[],
-): Promise<string> {
+): Promise<{ code: number; stdoutChunks: Buffer[]; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn("git", [...BASE_FLAGS, ...args], { cwd });
-    let stdout = "";
+    const stdoutChunks: Buffer[] = [];
     let stderr = "";
-    child.stdout.on("data", (d) => (stdout += d.toString("utf8")));
+    child.stdout.on("data", (d: Buffer) => stdoutChunks.push(d));
     child.stderr.on("data", (d) => (stderr += d.toString("utf8")));
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code === 0) resolve(stdout);
-      else reject(new GitError(code ?? -1, stderr, args));
+      resolve({ code: code ?? -1, stdoutChunks, stderr });
     });
   });
 }
 
-export function runGitBuffer(
+export async function runGit(
+  cwd: string,
+  args: readonly string[],
+): Promise<string> {
+  const { code, stdoutChunks, stderr } = await spawnGit(cwd, args);
+  if (code !== 0) throw new GitError(code, stderr, args);
+  return Buffer.concat(stdoutChunks).toString("utf8");
+}
+
+export async function runGitBuffer(
   cwd: string,
   args: readonly string[],
 ): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("git", [...BASE_FLAGS, ...args], { cwd });
-    const chunks: Buffer[] = [];
-    let stderr = "";
-    child.stdout.on("data", (d: Buffer) => chunks.push(d));
-    child.stderr.on("data", (d) => (stderr += d.toString("utf8")));
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) resolve(Buffer.concat(chunks));
-      else reject(new GitError(code ?? -1, stderr, args));
-    });
-  });
+  const { code, stdoutChunks, stderr } = await spawnGit(cwd, args);
+  if (code !== 0) throw new GitError(code, stderr, args);
+  return Buffer.concat(stdoutChunks);
+}
+
+/**
+ * Run git and return stdout plus the raw exit code. Unlike runGit, this does
+ * not reject on non-zero exits — needed for commands like `git diff --no-index`
+ * which exit with 1 whenever files differ (which is the point).
+ */
+export async function runGitLenient(
+  cwd: string,
+  args: readonly string[],
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const { code, stdoutChunks, stderr } = await spawnGit(cwd, args);
+  return { code, stdout: Buffer.concat(stdoutChunks).toString("utf8"), stderr };
 }

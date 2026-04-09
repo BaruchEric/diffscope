@@ -6,9 +6,11 @@ import {
   type Editor,
   type DefaultTab,
   type FileListMode,
-  THEMES,
+  THEME_CARDS,
   resolveThemeId,
 } from "../settings";
+import { Modal } from "./modal";
+import { usePrefersDark } from "../lib/use-prefers-dark";
 
 const DEFAULT_TABS: { value: DefaultTab; label: string }[] = [
   { value: "last-used", label: "Last used" },
@@ -46,107 +48,105 @@ export function SettingsModal() {
 
   // Esc is handled centrally by shortcuts.tsx (priority chain: settings →
   // palette → filter → focus), so no local listener is needed here.
-  if (!open) return null;
-
   return (
-    <div
-      onClick={close}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+    <Modal
+      open={open}
+      onClose={close}
+      labelledBy="settings-modal-title"
+      ariaLabel="Settings"
+      cardClassName="w-[520px] rounded-lg border border-border bg-bg-elevated p-6 shadow-soft"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-[520px] rounded-lg border border-border bg-bg-elevated p-6 shadow-soft"
-      >
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-display text-lg text-fg">Settings</h2>
-          <button
-            onClick={close}
-            className="text-fg-muted hover:text-fg"
-            aria-label="Close settings"
+      <div className="mb-5 flex items-center justify-between">
+        <h2 id="settings-modal-title" className="font-display text-lg text-fg">
+          Settings
+        </h2>
+        <button
+          onClick={close}
+          className="text-fg-muted hover:text-fg"
+          aria-label="Close settings"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="space-y-5">
+        <div>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
+            Theme
+          </div>
+          <ThemePicker current={theme} onSelect={(id) => set({ theme: id })} />
+        </div>
+
+        <Row label="Default tab">
+          <select
+            value={defaultTab}
+            onChange={(e) =>
+              set({ defaultTab: e.target.value as DefaultTab })
+            }
+            className="rounded border border-border-strong bg-surface px-2 py-1 text-fg focus:border-accent focus:outline-none"
           >
-            ×
+            {DEFAULT_TABS.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </Row>
+
+        <Row label="File list view">
+          <select
+            value={fileListMode}
+            onChange={(e) =>
+              set({ fileListMode: e.target.value as FileListMode })
+            }
+            className="rounded border border-border-strong bg-surface px-2 py-1 text-fg focus:border-accent focus:outline-none"
+          >
+            {LIST_MODES.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </Row>
+
+        <Row label="Open in editor">
+          <select
+            value={editor}
+            onChange={(e) => set({ editor: e.target.value as Editor })}
+            className="rounded border border-border-strong bg-surface px-2 py-1 text-fg focus:border-accent focus:outline-none"
+          >
+            {EDITORS.map((e2) => (
+              <option key={e2.value} value={e2.value}>
+                {e2.label}
+              </option>
+            ))}
+          </select>
+        </Row>
+
+        <Row label="Sticky blame">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={blameStickyOn}
+              onChange={(e) => set({ blameStickyOn: e.target.checked })}
+              className="accent-accent"
+            />
+            <span className="text-sm text-fg-muted">
+              Carry blame toggle to next file
+            </span>
+          </label>
+        </Row>
+
+        <div className="border-t border-border pt-4">
+          <button
+            onClick={() => reset(["fileListWidthPx"])}
+            className="rounded border border-border-strong px-3 py-1 text-sm text-fg-muted hover:border-accent hover:text-fg"
+          >
+            Reset pane widths
           </button>
         </div>
-
-        <div className="space-y-5">
-          <div>
-            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
-              Theme
-            </div>
-            <ThemePicker current={theme} onSelect={(id) => set({ theme: id })} />
-          </div>
-
-          <Row label="Default tab">
-            <select
-              value={defaultTab}
-              onChange={(e) =>
-                set({ defaultTab: e.target.value as DefaultTab })
-              }
-              className="rounded border border-border-strong bg-surface px-2 py-1 text-fg focus:border-accent focus:outline-none"
-            >
-              {DEFAULT_TABS.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </Row>
-
-          <Row label="File list view">
-            <select
-              value={fileListMode}
-              onChange={(e) =>
-                set({ fileListMode: e.target.value as FileListMode })
-              }
-              className="rounded border border-border-strong bg-surface px-2 py-1 text-fg focus:border-accent focus:outline-none"
-            >
-              {LIST_MODES.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </Row>
-
-          <Row label="Open in editor">
-            <select
-              value={editor}
-              onChange={(e) => set({ editor: e.target.value as Editor })}
-              className="rounded border border-border-strong bg-surface px-2 py-1 text-fg focus:border-accent focus:outline-none"
-            >
-              {EDITORS.map((e2) => (
-                <option key={e2.value} value={e2.value}>
-                  {e2.label}
-                </option>
-              ))}
-            </select>
-          </Row>
-
-          <Row label="Sticky blame">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={blameStickyOn}
-                onChange={(e) => set({ blameStickyOn: e.target.checked })}
-                className="accent-accent"
-              />
-              <span className="text-sm text-fg-muted">
-                Carry blame toggle to next file
-              </span>
-            </label>
-          </Row>
-
-          <div className="border-t border-border pt-4">
-            <button
-              onClick={() => reset(["fileListWidthPx"])}
-              className="rounded border border-border-strong px-3 py-1 text-sm text-fg-muted hover:border-accent hover:text-fg"
-            >
-              Reset pane widths
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -172,15 +172,12 @@ interface ThemePickerProps {
 
 function ThemePicker({ current, onSelect }: ThemePickerProps) {
   // For the Auto card, render the preview using whichever theme it would
-  // currently resolve to. Hoisted out of the map so matchMedia runs once
-  // per open/render instead of once per card — only Auto actually reads
-  // prefersDark, the other three are passthroughs in resolveThemeId.
-  const prefersDark =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  // currently resolve to. `usePrefersDark` subscribes to the OS preference
+  // so a live OS theme flip while the modal is open updates the Auto swatch.
+  const prefersDark = usePrefersDark();
   return (
     <div className="grid grid-cols-2 gap-3">
-      {THEMES.map((t) => {
+      {THEME_CARDS.map((t) => {
         const isActive = current === t.id;
         const previewId = resolveThemeId(t.id, prefersDark);
         return (

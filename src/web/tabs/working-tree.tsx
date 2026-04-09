@@ -8,8 +8,9 @@ export function WorkingTreeTab() {
   const focusedPath = useStore((s) => s.focusedPath);
   return (
     <PaneSplit
-      left={<FileList />}
-      right={
+      axis="x"
+      a={<FileList />}
+      b={
         <div className="h-full overflow-auto">
           <DiffView
             diff={focusedDiff}

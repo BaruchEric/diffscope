@@ -38,14 +38,15 @@ export function FileList() {
   const setSettings = useSettings((s) => s.set);
   const [filter, setFilter] = useState("");
 
-  const groups = useMemo(
-    () =>
-      group(status).map((grp) => ({
-        ...grp,
-        files: fuzzyFilter(grp.files, filter, (f) => f.path),
-      })),
-    [status, filter],
-  );
+  // Filter the full flat list once, then group. Previously we ran
+  // fuzzyFilter three times (one per group), which scored every file three
+  // times per keystroke.
+  const groups = useMemo(() => {
+    const filtered = filter
+      ? fuzzyFilter(status, filter, (f) => f.path)
+      : status;
+    return group(filtered);
+  }, [status, filter]);
 
   return (
     <div className="flex h-full flex-col border-r border-border">

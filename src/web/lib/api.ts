@@ -9,13 +9,40 @@ import type {
   Stash,
 } from "@shared/types";
 
+/** Shared recent-repo shape — the server and web both consume this. */
+export interface RecentEntry {
+  path: string;
+  lastOpenedAt: string;
+}
+
+// Wedge-prevention default: if the backend takes longer than this to answer,
+// abort so the UI can surface an error instead of spinning forever. Callers
+// can pass their own AbortSignal to override (e.g. long-running endpoints).
+const DEFAULT_TIMEOUT_MS = 15_000;
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${res.status} ${url}: ${text}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  // If the caller passed their own signal, chain aborts.
+  const callerSignal = init?.signal;
+  if (callerSignal) {
+    if (callerSignal.aborted) controller.abort();
+    else callerSignal.addEventListener("abort", () => controller.abort());
   }
-  return (await res.json()) as T;
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`${res.status} ${url}: ${text}`);
+    }
+    const ct = res.headers.get("content-type") ?? "";
+    if (!ct.includes("application/json")) {
+      throw new Error(`${url}: expected JSON, got ${ct || "no content-type"}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export const api = {
@@ -35,9 +62,9 @@ export const api = {
   stashes: () => fetchJson<Stash[]>("/api/stashes"),
   browse: (path?: string) =>
     fetchJson<BrowseResult>(`/api/browse${path ? `?path=${encodeURIComponent(path)}` : ""}`),
-  recents: () => fetchJson<{ path: string; lastOpenedAt: string }[]>("/api/recents"),
+  recents: () => fetchJson<RecentEntry[]>("/api/recents"),
   removeRecent: (path: string) =>
-    fetchJson<{ path: string; lastOpenedAt: string }[]>(
+    fetchJson<RecentEntry[]>(
       `/api/recents?path=${encodeURIComponent(path)}`,
       { method: "DELETE" },
     ),

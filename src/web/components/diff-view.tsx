@@ -36,18 +36,18 @@ export function DiffView({
     if (onToggleCollapsed) onToggleCollapsed();
     else setInternalCollapsed((v) => !v);
   }, [onToggleCollapsed]);
-  const mode = useStore((s) => s.diffMode);
+  const mode = useSettings((s) => s.diffMode);
   const focusedPath = useStore((s) => s.focusedPath);
   const blameOnFor = useStore((s) => s.blameOnFor);
   const blameCache = useStore((s) => s.blameCache);
   const repo = useStore((s) => s.repo);
 
   // Callback ref because the outer <div> only mounts after the loading/empty
-  // early returns — the effect re-runs when the element attaches.
+  // early returns — the effect re-runs when the element attaches. The
+  // initial value is false; ResizeObserver fires synchronously on observe
+  // so the first real measurement lands before paint.
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
-  const [containerNarrow, setContainerNarrow] = useState(
-    () => window.innerWidth < SPLIT_MIN_CONTAINER_WIDTH + 320,
-  );
+  const [containerNarrow, setContainerNarrow] = useState(false);
   useEffect(() => {
     if (!containerEl) return;
     const ro = new ResizeObserver((entries) => {
@@ -186,22 +186,27 @@ function PathParts({ path, muted }: { path: string; muted?: boolean }) {
 }
 
 function DiffViewHeaderControls({ diff }: { diff: ParsedDiff }) {
-  const focusedPath = useStore((s) => s.focusedPath);
-  const blameOnFor = useStore((s) => s.blameOnFor);
+  // Narrow subscription: all the non-focused sticky headers in history
+  // view previously re-rendered on every focusedPath/blameOnFor/repo tick.
+  // Subscribe only to the boolean "is this diff the focused one"; the
+  // child component owns the rest of the subscriptions and only mounts
+  // when it's actually going to render something.
+  const isFocused = useStore((s) => s.focusedPath === diff.path);
+  if (!isFocused) return null;
+  return <FocusedDiffControls diff={diff} />;
+}
+
+function FocusedDiffControls({ diff }: { diff: ParsedDiff }) {
+  const blameOn = useStore((s) => s.blameOnFor.has(diff.path));
   const repo = useStore((s) => s.repo);
   const toggleBlame = useStore((s) => s.toggleBlame);
-
-  // Only show controls when the diff is for the currently focused file.
-  if (!focusedPath || focusedPath !== diff.path) return null;
-
-  const blameOn = blameOnFor.has(focusedPath);
   const firstLine = diff.hunks[0]?.newStart ?? 1;
-  const absPath = `${repo?.root ?? ""}/${focusedPath}`;
+  const absPath = `${repo?.root ?? ""}/${diff.path}`;
 
   return (
     <div className="flex items-center gap-2">
       <button
-        onClick={() => toggleBlame(focusedPath)}
+        onClick={() => toggleBlame(diff.path)}
         aria-pressed={blameOn}
         title="Toggle blame (HEAD only) — b"
         className={
@@ -335,7 +340,7 @@ function pairRows(lines: DiffLine[]): SplitRow[] {
   return rows;
 }
 
-function HunkLines({
+const HunkLines = memo(function HunkLines({
   path,
   lines,
   blameOn,
@@ -392,7 +397,7 @@ function HunkLines({
       </tbody>
     </table>
   );
-}
+});
 
 /**
  * Async-highlight an array of text lines via Shiki, returning HTML strings or
@@ -403,9 +408,9 @@ function HunkLines({
 function useHighlightedTexts(path: string, texts: string[]): string[] | null {
   const [highlighted, setHighlighted] = useState<string[] | null>(null);
   const themeSetting = useSettings((s) => s.theme);
-  // Cheap stable key — texts arrays are line-by-line, joining with NUL is
-  // cheap and avoids re-running the effect on every parent render.
-  const key = useMemo(() => texts.join("\x00"), [texts]);
+  // Depend on the `texts` array identity — callers memoize it so reference
+  // equality already implies content equality. This avoids the old
+  // `texts.join("\x00")` cache-key build which was O(n) per parent render.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -424,8 +429,7 @@ function useHighlightedTexts(path: string, texts: string[]): string[] | null {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, key, themeSetting]);
+  }, [path, texts, themeSetting]);
   return highlighted;
 }
 

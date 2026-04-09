@@ -13,8 +13,11 @@ export type DefaultTab =
   | "branches"
   | "stashes";
 
+export type ConcreteThemeId = Exclude<ThemeId, "auto">;
+
+/** Metadata for a concrete (non-`auto`) theme preset. */
 export interface ThemeMeta {
-  id: ThemeId;
+  id: ConcreteThemeId;
   label: string;
   mode: "light" | "dark";
   accent: string;
@@ -22,20 +25,13 @@ export interface ThemeMeta {
   description: string;
 }
 
-// `auto` carries no visual metadata of its own — it is a pointer to
-// whichever concrete preset `applyTheme` resolves to. Code that wants to
-// render a swatch or decide a mode for `auto` must resolve it first via
-// `resolveThemeId(id)`.
-export const THEMES: ThemeMeta[] = [
-  {
-    id: "auto",
-    label: "Auto",
-    mode: "dark",
-    accent: "#22d3ee",
-    shikiTheme: "vitesse-dark",
-    description: "Follows your OS",
-  },
-  {
+/**
+ * Concrete preset metadata keyed by id. `auto` is not present here because
+ * it carries no visual metadata of its own — it is a pointer to whichever
+ * preset `resolveThemeId(id, prefersDark)` returns.
+ */
+export const CONCRETE_THEMES: Record<ConcreteThemeId, ThemeMeta> = {
+  midnight: {
     id: "midnight",
     label: "Midnight",
     mode: "dark",
@@ -43,7 +39,7 @@ export const THEMES: ThemeMeta[] = [
     shikiTheme: "vitesse-dark",
     description: "Dark · refined editor",
   },
-  {
+  paper: {
     id: "paper",
     label: "Paper",
     mode: "light",
@@ -51,7 +47,7 @@ export const THEMES: ThemeMeta[] = [
     shikiTheme: "catppuccin-latte",
     description: "Light · editorial",
   },
-  {
+  aperture: {
     id: "aperture",
     label: "Aperture",
     mode: "light",
@@ -59,7 +55,7 @@ export const THEMES: ThemeMeta[] = [
     shikiTheme: "rose-pine-dawn",
     description: "Light · premium",
   },
-  {
+  neon: {
     id: "neon",
     label: "Neon",
     mode: "dark",
@@ -67,6 +63,25 @@ export const THEMES: ThemeMeta[] = [
     shikiTheme: "synthwave-84",
     description: "Dark · synthwave",
   },
+};
+
+/**
+ * Settings-UI card entries (ordered). Auto shows up here alongside concrete
+ * presets so the picker can offer it, but callers must `resolveThemeId` before
+ * reading any visual metadata.
+ */
+export interface ThemeCard {
+  id: ThemeId;
+  label: string;
+  description: string;
+}
+
+export const THEME_CARDS: ThemeCard[] = [
+  { id: "auto", label: "Auto", description: "Follows your OS" },
+  { id: "midnight", label: CONCRETE_THEMES.midnight.label, description: CONCRETE_THEMES.midnight.description },
+  { id: "paper", label: CONCRETE_THEMES.paper.label, description: CONCRETE_THEMES.paper.description },
+  { id: "aperture", label: CONCRETE_THEMES.aperture.label, description: CONCRETE_THEMES.aperture.description },
+  { id: "neon", label: CONCRETE_THEMES.neon.label, description: CONCRETE_THEMES.neon.description },
 ];
 
 const VALID_THEME_IDS = new Set<ThemeId>([
@@ -98,7 +113,7 @@ export function migrateLegacyTheme(value: unknown): ThemeId {
 export function resolveThemeId(
   id: ThemeId,
   prefersDark: boolean,
-): Exclude<ThemeId, "auto"> {
+): ConcreteThemeId {
   if (id !== "auto") return id;
   return prefersDark ? "midnight" : "paper";
 }

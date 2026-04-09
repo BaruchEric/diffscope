@@ -99,7 +99,13 @@ export interface RepoInfo {
 }
 
 export type SseEvent =
-  | { type: "snapshot"; status: FileStatus[]; repo: RepoInfo }
+  | {
+      type: "snapshot";
+      status: FileStatus[];
+      repo: RepoInfo;
+      branches: Branch[];
+      stashes: Stash[];
+    }
   | { type: "file-updated"; path: string; status: FileStatus; diff?: ParsedDiff }
   | { type: "file-removed"; path: string }
   | { type: "head-changed"; headSha: string; status: FileStatus[]; branches: Branch[] }

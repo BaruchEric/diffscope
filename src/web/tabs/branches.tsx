@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { Branch } from "@shared/types";
 import { useStore } from "../store";
 import { fuzzyFilter } from "../lib/fuzzy";
+import { ListRow } from "../components/list-row";
 
 export function BranchesTab() {
   const branches = useStore((s) => s.branches);
@@ -10,13 +11,20 @@ export function BranchesTab() {
   const [query, setQuery] = useState("");
   const selected = branches.find((b) => b.name === focused) ?? null;
 
-  const filtered = useMemo(
-    () => fuzzyFilter(branches, query, (b) => `${b.name} ${b.tipSubject}`),
-    [branches, query],
-  );
-
-  const locals = filtered.filter((b) => !b.isRemote);
-  const remotes = filtered.filter((b) => b.isRemote);
+  // Filter + split in one memo pass — previously three separate .filter
+  // passes (one in fuzzyFilter, two to split local/remote) ran on every
+  // render.
+  const { locals, remotes } = useMemo(() => {
+    const filtered = fuzzyFilter(
+      branches,
+      query,
+      (b) => `${b.name} ${b.tipSubject}`,
+    );
+    const locals: Branch[] = [];
+    const remotes: Branch[] = [];
+    for (const b of filtered) (b.isRemote ? remotes : locals).push(b);
+    return { locals, remotes };
+  }, [branches, query]);
 
   return (
     <div className="grid h-full grid-cols-[320px_1fr]">
@@ -74,19 +82,15 @@ function BranchGroup({
         {label} ({branches.length})
       </div>
       {branches.map((b) => (
-        <button
+        <ListRow
           key={b.name}
+          density="sm"
+          selected={focused === b.name}
           onClick={() => onFocus(b.name)}
-          className={
-            "block w-full truncate px-3 py-1.5 text-left text-sm border-l-2 " +
-            (focused === b.name
-              ? "bg-surface-hover text-fg border-accent"
-              : "text-fg-muted hover:bg-surface-hover hover:text-fg border-transparent")
-          }
         >
           {b.isCurrent && <span className="mr-1 text-diff-add-sign">●</span>}
           {b.name}
-        </button>
+        </ListRow>
       ))}
     </div>
   );

@@ -103,66 +103,49 @@ export function FileTree({
 }) {
   const tree = useMemo(() => buildTree(files), [files]);
 
-  // Track the user's manual collapse/expand deltas instead of the full
-  // expanded set. Default behavior = "expand every ancestor of a changed
-  // file", which we apply during render — no effect needed.
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  // Track the user's manual expand/collapse deltas as a single map — the
+  // value is the override (true = force-expanded, false = force-collapsed);
+  // missing keys fall through to the default "expand ancestors of changed
+  // files" rule. One map, one setState per toggle, no mutually-exclusive
+  // bookkeeping.
+  const [override, setOverride] = useState<Map<string, boolean>>(() => new Map());
 
   const defaults = useMemo(() => collectAncestorDirs(files), [files]);
 
-  const isExpanded = (dir: string): boolean => {
-    if (collapsed.has(dir)) return false;
-    if (expanded.has(dir)) return true;
-    return defaults.has(dir);
-  };
-
   const visible = useMemo(() => {
+    const isExpanded = (dir: string): boolean => {
+      const forced = override.get(dir);
+      if (forced !== undefined) return forced;
+      return defaults.has(dir);
+    };
     const out: { node: TreeNode; depth: number }[] = [];
     flattenVisible(tree, isExpanded, 0, out);
     return out;
-    // isExpanded closes over collapsed/expanded/defaults; those are the real deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tree, collapsed, expanded, defaults]);
+  }, [tree, override, defaults]);
+
+  // Inline helper for the header rows — reads the latest override + defaults
+  // without going through useMemo.
+  const isExpanded = (dir: string): boolean => {
+    const forced = override.get(dir);
+    if (forced !== undefined) return forced;
+    return defaults.has(dir);
+  };
 
   const toggle = (dirPath: string) => {
-    const currentlyOpen = isExpanded(dirPath);
-    if (currentlyOpen) {
-      // collapse: clear explicit-expand, add to collapsed.
-      setExpanded((prev) => {
-        if (!prev.has(dirPath)) return prev;
-        const next = new Set(prev);
-        next.delete(dirPath);
-        return next;
-      });
-      setCollapsed((prev) => {
-        const next = new Set(prev);
-        next.add(dirPath);
-        return next;
-      });
-    } else {
-      setCollapsed((prev) => {
-        if (!prev.has(dirPath)) return prev;
-        const next = new Set(prev);
-        next.delete(dirPath);
-        return next;
-      });
-      setExpanded((prev) => {
-        const next = new Set(prev);
-        next.add(dirPath);
-        return next;
-      });
-    }
+    setOverride((prev) => {
+      const next = new Map(prev);
+      next.set(dirPath, !isExpanded(dirPath));
+      return next;
+    });
   };
 
   const expandAll = () => {
     const all = collectAllDirs(tree);
-    setExpanded(new Set(all));
-    setCollapsed(new Set());
+    setOverride(new Map(all.map((d) => [d, true])));
   };
   const collapseAll = () => {
-    setExpanded(new Set());
-    setCollapsed(new Set(collectAllDirs(tree)));
+    const all = collectAllDirs(tree);
+    setOverride(new Map(all.map((d) => [d, false])));
   };
 
   return (

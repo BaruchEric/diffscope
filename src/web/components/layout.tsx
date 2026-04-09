@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useStore, type Tab } from "../store";
+import { useSettings } from "../settings";
 import { StatusBar } from "./status-bar";
 
 const TABS: { key: Tab; label: string; shortLabel: string }[] = [
@@ -10,14 +11,15 @@ const TABS: { key: Tab; label: string; shortLabel: string }[] = [
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
-  const tab = useStore((s) => s.tab);
-  const setTab = useStore((s) => s.setTab);
+  const tab = useSettings((s) => s.lastUsedTab);
+  const setTab = (next: Tab) => useSettings.getState().set({ lastUsedTab: next });
   const paused = useStore((s) => s.paused);
   const togglePaused = useStore((s) => s.togglePaused);
   const watcherDown = useStore((s) => s.watcherDown);
   const repoRoot = useStore((s) => s.repo?.root ?? null);
-  const diffMode = useStore((s) => s.diffMode);
-  const setDiffMode = useStore((s) => s.setDiffMode);
+  const diffMode = useSettings((s) => s.diffMode);
+  const setDiffMode = (next: "unified" | "split") =>
+    useSettings.getState().set({ diffMode: next });
   // Subscribe to scalar lengths instead of whole arrays so SSE ticks that
   // don't actually change counts don't re-render the header.
   const statusLen = useStore((s) => s.status.length);

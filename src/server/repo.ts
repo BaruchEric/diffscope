@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseDiff, parseLog, parseStatus } from "./parser";
-import { runGit, runGitBuffer } from "./git";
+import { runGit, runGitBuffer, runGitLenient } from "./git";
 import type {
   Branch,
   Commit,
@@ -95,8 +95,29 @@ export function createRepo(cwd: string): Repo {
       if (staged) args.push("--cached");
       args.push("--", path);
       const out = await runGit(cwd, args);
-      if (!out.trim()) return null;
-      const parsed = parseDiff(out);
+      if (out.trim()) {
+        const parsed = parseDiff(out);
+        return parsed[0] ?? null;
+      }
+      // Empty output on an unstaged diff usually means the file is untracked
+      // (git diff only considers tracked files). Fall back to --no-index
+      // against /dev/null so the user can see untracked content as an
+      // all-added diff — and so binary/image handlers still fire.
+      if (staged) return null;
+      const res = await runGitLenient(cwd, [
+        "diff",
+        "--no-index",
+        "--patch",
+        "--no-color",
+        "--",
+        "/dev/null",
+        path,
+      ]);
+      // --no-index exits 0 (identical) or 1 (differs); anything else is a real
+      // error (missing file, bad path, etc.).
+      if (res.code > 1) return null;
+      if (!res.stdout.trim()) return null;
+      const parsed = parseDiff(res.stdout);
       return parsed[0] ?? null;
     },
     async getLog({ limit, offset }) {

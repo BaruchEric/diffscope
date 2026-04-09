@@ -4,6 +4,7 @@ import { useStore } from "../store";
 import { buildActions, type PaletteAction } from "../lib/actions";
 import { fuzzyFilter } from "../lib/fuzzy";
 import { useSettings, type ThemeId } from "../settings";
+import { Modal } from "./modal";
 
 const THEME_COMMANDS: PaletteAction[] = [
   {
@@ -43,6 +44,11 @@ const THEME_COMMANDS: PaletteAction[] = [
   },
 ];
 
+// Hoist the action list out of the component — neither `buildActions()` nor
+// `THEME_COMMANDS` depends on React state, so rebuilding it per render (or
+// even per mount) is wasted work.
+const ALL_ACTIONS: PaletteAction[] = [...buildActions(), ...THEME_COMMANDS];
+
 type ItemKind =
   | { kind: "action"; action: PaletteAction }
   | { kind: "file"; path: string }
@@ -53,7 +59,7 @@ type ItemKind =
 export function CommandPalette() {
   const open = useStore((s) => s.paletteOpen);
   const close = useStore((s) => s.closePalette);
-  const tab = useStore((s) => s.tab);
+  const tab = useSettings((s) => s.lastUsedTab);
   const status = useStore((s) => s.status);
   const log = useStore((s) => s.log);
   const branches = useStore((s) => s.branches);
@@ -62,16 +68,14 @@ export function CommandPalette() {
   const focusCommit = useStore((s) => s.focusCommit);
   const focusBranch = useStore((s) => s.focusBranch);
   const focusStash = useStore((s) => s.focusStash);
-  const setTab = useStore((s) => s.setTab);
 
   const [query, setQuery] = useState("");
   const [selIdx, setSelIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const actions = useMemo(() => [...buildActions(), ...THEME_COMMANDS], []);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const items = useMemo(() => {
-    const filteredActions = fuzzyFilter(actions, query, (a) => a.label).map(
+    const filteredActions = fuzzyFilter(ALL_ACTIONS, query, (a) => a.label).map(
       (a) => ({ kind: "action" as const, action: a }),
     );
 
@@ -102,7 +106,7 @@ export function CommandPalette() {
     }
 
     return { actions: filteredActions, contextual };
-  }, [actions, query, tab, status, log, branches, stashes]);
+  }, [query, tab, status, log, branches, stashes]);
 
   const flatList: ItemKind[] = useMemo(
     () => [...items.actions, ...items.contextual],
@@ -120,6 +124,14 @@ export function CommandPalette() {
   useEffect(() => {
     setSelIdx(0);
   }, [query, tab]);
+
+  // Scroll the selected row into view when arrow keys push it off-screen.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const row = list.querySelector<HTMLElement>(`[data-palette-idx="${selIdx}"]`);
+    row?.scrollIntoView({ block: "nearest" });
+  }, [selIdx]);
 
   // Keep the latest list / selection / activate fn in refs so the keydown
   // listener stays stable across arrow-key presses. Without this, each
@@ -161,7 +173,7 @@ export function CommandPalette() {
     else if (item.kind === "file") void focusFile(item.path);
     else if (item.kind === "commit") {
       void focusCommit(item.sha);
-      setTab("history");
+      useSettings.getState().set({ lastUsedTab: "history" });
     } else if (item.kind === "branch") focusBranch(item.name);
     else if (item.kind === "stash") focusStash(item.index);
     close();
@@ -169,68 +181,65 @@ export function CommandPalette() {
   const activateRef = useRef(activate);
   activateRef.current = activate;
 
-  if (!open) return null;
-
   return (
-    <div
-      onClick={close}
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-24 backdrop-blur-sm"
+    <Modal
+      open={open}
+      onClose={close}
+      ariaLabel="Command palette"
+      cardClassName="mt-24 w-[520px] overflow-hidden rounded-lg border border-border bg-bg-elevated shadow-soft self-start"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-[520px] overflow-hidden rounded-lg border border-border bg-bg-elevated shadow-soft"
-      >
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Type an action, file, commit, branch, or stash…"
-          className="w-full border-b border-border bg-transparent px-4 py-3 text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none"
-          autoFocus
-        />
-        <div className="max-h-[400px] overflow-auto">
-          {items.actions.length > 0 && (
-            <Section title="Actions">
-              {items.actions.map((entry, i) => (
+      <input
+        ref={inputRef}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Type an action, file, commit, branch, or stash…"
+        className="w-full border-b border-border bg-transparent px-4 py-3 text-sm text-fg placeholder:text-fg-subtle focus:border-accent focus:outline-none"
+        autoFocus
+      />
+      <div ref={listRef} className="max-h-[400px] overflow-auto">
+        {items.actions.length > 0 && (
+          <Section title="Actions">
+            {items.actions.map((entry, i) => (
+              <Row
+                key={entry.action.id}
+                dataIdx={i}
+                selected={i === selIdx}
+                onClick={() => activate(entry)}
+              >
+                <span>{entry.action.label}</span>
+                {entry.action.hint && (
+                  <span className="ml-auto font-mono text-xs text-fg-subtle">
+                    {entry.action.hint}
+                  </span>
+                )}
+              </Row>
+            ))}
+          </Section>
+        )}
+        {items.contextual.length > 0 && (
+          <Section title={contextTitle(tab)}>
+            {items.contextual.map((entry, i) => {
+              const gi = items.actions.length + i;
+              return (
                 <Row
-                  key={entry.action.id}
-                  selected={i === selIdx}
+                  key={keyFor(entry)}
+                  dataIdx={gi}
+                  selected={gi === selIdx}
                   onClick={() => activate(entry)}
                 >
-                  <span>{entry.action.label}</span>
-                  {entry.action.hint && (
-                    <span className="ml-auto font-mono text-xs text-fg-subtle">
-                      {entry.action.hint}
-                    </span>
-                  )}
+                  {labelFor(entry)}
                 </Row>
-              ))}
-            </Section>
-          )}
-          {items.contextual.length > 0 && (
-            <Section title={contextTitle(tab)}>
-              {items.contextual.map((entry, i) => {
-                const gi = items.actions.length + i;
-                return (
-                  <Row
-                    key={keyFor(entry)}
-                    selected={gi === selIdx}
-                    onClick={() => activate(entry)}
-                  >
-                    {labelFor(entry)}
-                  </Row>
-                );
-              })}
-            </Section>
-          )}
-          {flatList.length === 0 && (
-            <div className="px-4 py-6 text-center text-sm text-fg-subtle">
-              No matches
-            </div>
-          )}
-        </div>
+              );
+            })}
+          </Section>
+        )}
+        {flatList.length === 0 && (
+          <div className="px-4 py-6 text-center text-sm text-fg-subtle">
+            No matches
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -254,15 +263,18 @@ function Section({
 function Row({
   selected,
   onClick,
+  dataIdx,
   children,
 }: {
   selected: boolean;
   onClick: () => void;
+  dataIdx: number;
   children: React.ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
+      data-palette-idx={dataIdx}
       className={
         "flex w-full items-center gap-2 px-4 py-2 text-left text-sm " +
         (selected

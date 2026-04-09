@@ -88,8 +88,9 @@ export function createEventHub(repo: Repo): EventHub {
       // Fetch diffs for updated files concurrently, but cap concurrency so a
       // watcher batch with hundreds of files (e.g. mass rebase) doesn't spawn
       // hundreds of `git diff` subprocesses at once and starve CPU/FDs.
+      const diffPathSet = opts.pathsToDiff ? new Set(opts.pathsToDiff) : null;
       const wantDiff = (path: string): boolean =>
-        !!opts.withDiffs && (!opts.pathsToDiff || opts.pathsToDiff.includes(path));
+        !!opts.withDiffs && (!diffPathSet || diffPathSet.has(path));
 
       const diffs: (ParsedDiff | undefined)[] = new Array(updated.length);
       let cursor = 0;
@@ -141,8 +142,10 @@ export function createEventHub(repo: Repo): EventHub {
         break;
       case "head-changed":
         invalidateBlameCache();
-        await refreshRepoInfo();
-        await refreshStatus({ withDiffs: false });
+        // refreshRepoInfo and refreshStatus touch independent state — run
+        // them in parallel so a fresh commit doesn't stall the UI while we
+        // sequentially wait for two git subprocess chains.
+        await Promise.all([refreshRepoInfo(), refreshStatus({ withDiffs: false })]);
         emit({
           type: "head-changed",
           headSha: repoInfo.headSha,
@@ -171,13 +174,16 @@ export function createEventHub(repo: Repo): EventHub {
 
   return {
     async start() {
-      await refreshRepoInfo();
-      statusSnapshot = await repo.getStatus();
-      try {
-        stashesSnapshot = await repo.getStashes();
-      } catch {
-        // empty / no stash ref yet — ignore
-      }
+      // Fan out the three independent startup queries — they share no state
+      // and each spawns its own git subprocess, so sequential awaits triple
+      // the user's first-paint latency.
+      const [, nextStatus, nextStashes] = await Promise.all([
+        refreshRepoInfo(),
+        repo.getStatus(),
+        repo.getStashes().catch(() => [] as Stash[]),
+      ]);
+      statusSnapshot = nextStatus;
+      stashesSnapshot = nextStashes;
       // Serialize handler dispatch — concurrent handlers would race on
       // statusSnapshot/branchesSnapshot/etc. and could emit duplicate or
       // out-of-order events. Chaining onto an inflight promise guarantees
@@ -205,6 +211,8 @@ export function createEventHub(repo: Repo): EventHub {
         type: "snapshot",
         status: statusSnapshot,
         repo: repoInfo,
+        branches: branchesSnapshot,
+        stashes: stashesSnapshot,
       };
       return {
         snapshot,

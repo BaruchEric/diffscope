@@ -1,58 +1,98 @@
 // src/web/components/pane-split.tsx
-// Two-child horizontal split with a draggable divider.
-// Left child width is persisted via useSettings.fileListWidthPx.
-import { type ReactNode } from "react";
+// Two-child split with a draggable divider. `axis="x"` places the divider
+// vertically (resizes left pane width); `axis="y"` places it horizontally
+// (resizes top pane height). The two callsites keep their own clamp to match
+// their content constraints; everything else (drag mechanics, knob, a11y)
+// lives here.
+import { useCallback, useRef, type ReactNode } from "react";
 import { usePaneDrag } from "../lib/use-pane-drag";
 
 const MIN_WIDTH = 160;
-const MAX_FRACTION = 0.4;
+const MAX_WIDTH_FRACTION = 0.4;
 // Below this viewport, the file-list pane should be allowed to collapse to
 // a very tight width so the diff area isn't completely crowded out.
 const NARROW_VIEWPORT = 720;
 const NARROW_MIN_WIDTH = 120;
 
-function effectiveMin(): number {
-  return window.innerWidth < NARROW_VIEWPORT ? NARROW_MIN_WIDTH : MIN_WIDTH;
-}
-
 function clampWidth(px: number): number {
-  const min = effectiveMin();
-  const max = Math.max(min + 80, Math.floor(window.innerWidth * MAX_FRACTION));
+  const min = window.innerWidth < NARROW_VIEWPORT ? NARROW_MIN_WIDTH : MIN_WIDTH;
+  const max = Math.max(min + 80, Math.floor(window.innerWidth * MAX_WIDTH_FRACTION));
   return Math.min(Math.max(px, min), max);
 }
 
-export function PaneSplit({
-  left,
-  right,
-}: {
-  left: ReactNode;
-  right: ReactNode;
-}) {
-  const { sizePx, dragging, onMouseDown, onDoubleClick } = usePaneDrag({
-    axis: "x",
-    settingsKey: "fileListWidthPx",
-    clamp: clampWidth,
-  });
+const MIN_HEIGHT = 44;
+const MAX_HEIGHT_FRACTION = 0.75;
+
+interface PaneSplitProps {
+  axis: "x" | "y";
+  /** First child — left (axis=x) or top (axis=y). */
+  a: ReactNode;
+  /** Second child — right (axis=x) or bottom (axis=y). */
+  b: ReactNode;
+}
+
+/**
+ * Horizontal split: `axis="x"` — divider is vertical, the left pane's width
+ * is persisted to `fileListWidthPx`. Matches the width clamp from the
+ * working-tree pane.
+ *
+ * Vertical split: `axis="y"` — divider is horizontal, the top pane's height
+ * is persisted to `commitDetailHeightPx`. The height clamp is derived from
+ * the enclosing container so a tight viewport can still leave room for the
+ * diff area below.
+ */
+export function PaneSplit({ axis, a, b }: PaneSplitProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const clampHeight = useCallback((px: number): number => {
+    const containerH = containerRef.current?.clientHeight ?? window.innerHeight;
+    const max = Math.max(MIN_HEIGHT + 40, Math.floor(containerH * MAX_HEIGHT_FRACTION));
+    return Math.min(Math.max(px, MIN_HEIGHT), max);
+  }, []);
+
+  const { sizePx, dragging, onMouseDown, onDoubleClick } = usePaneDrag(
+    axis === "x"
+      ? { axis, settingsKey: "fileListWidthPx", clamp: clampWidth }
+      : { axis, settingsKey: "commitDetailHeightPx", clamp: clampHeight },
+  );
+
+  const isX = axis === "x";
+  const wrapperClass = isX
+    ? "flex h-full min-h-0 w-full"
+    : "flex h-full min-h-0 w-full flex-col";
+  const paneAClass = isX
+    ? "h-full min-h-0 shrink-0 overflow-hidden"
+    : "w-full min-w-0 shrink-0 overflow-hidden";
+  const paneAStyle = isX ? { width: sizePx } : { height: sizePx };
+  const separatorClass = isX
+    ? "group relative flex h-full w-1 shrink-0 cursor-col-resize items-center justify-center"
+    : "group relative flex h-1 w-full shrink-0 cursor-row-resize items-center justify-center";
+  const separatorBarClass = isX
+    ? "h-full w-px transition-colors "
+    : "h-px w-full transition-colors ";
+  const knobClass = isX
+    ? "flex h-6 w-1 flex-col items-center justify-center gap-0.5"
+    : "flex h-1 w-6 flex-row items-center justify-center gap-0.5";
+  const paneBClass = isX
+    ? "h-full min-h-0 min-w-0 flex-1 overflow-hidden"
+    : "h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden";
 
   return (
-    <div className="flex h-full min-h-0 w-full">
-      <div
-        className="h-full min-h-0 shrink-0 overflow-hidden"
-        style={{ width: sizePx }}
-      >
-        {left}
+    <div ref={containerRef} className={wrapperClass}>
+      <div className={paneAClass} style={paneAStyle}>
+        {a}
       </div>
       <div
         role="separator"
-        aria-orientation="vertical"
+        aria-orientation={isX ? "vertical" : "horizontal"}
         onMouseDown={onMouseDown}
         onDoubleClick={onDoubleClick}
-        className="group relative flex h-full w-1 shrink-0 cursor-col-resize items-center justify-center"
+        className={separatorClass}
         title="Drag to resize, double-click to reset"
       >
         <div
           className={
-            "h-full w-px transition-colors " +
+            separatorBarClass +
             (dragging ? "bg-accent" : "bg-border group-hover:bg-accent")
           }
         />
@@ -62,14 +102,14 @@ export function PaneSplit({
             (dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100")
           }
         >
-          <div className="flex h-6 w-1 flex-col items-center justify-center gap-0.5">
+          <div className={knobClass}>
             <div className="h-0.5 w-0.5 rounded-full bg-accent-fg" />
             <div className="h-0.5 w-0.5 rounded-full bg-accent-fg" />
             <div className="h-0.5 w-0.5 rounded-full bg-accent-fg" />
           </div>
         </div>
       </div>
-      <div className="h-full min-h-0 min-w-0 flex-1 overflow-hidden">{right}</div>
+      <div className={paneBClass}>{b}</div>
     </div>
   );
 }

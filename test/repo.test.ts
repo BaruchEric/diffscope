@@ -64,6 +64,25 @@ describe("repo", () => {
     expect(diff!.hunks[0]!.lines.some((l) => l.kind === "add")).toBe(true);
   });
 
+  test("getFileDiff synthesizes an all-added diff for untracked files", async () => {
+    temp.write("a.ts", "original\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+    // Never `git add`ed — fully untracked.
+    temp.write("new.ts", "line one\nline two\n");
+
+    const repo = createRepo(temp.root);
+    const diff = await repo.getFileDiff("new.ts", { staged: false });
+    expect(diff).not.toBeNull();
+    expect(diff!.path).toBe("new.ts");
+    // --no-index "new file" path should not be treated as a rename.
+    expect(diff!.oldPath).toBeUndefined();
+    const lines = diff!.hunks.flatMap((h) => h.lines);
+    expect(lines.length).toBe(2);
+    expect(lines.every((l) => l.kind === "add")).toBe(true);
+    expect(lines.map((l) => l.text)).toEqual(["line one", "line two"]);
+  });
+
   test("getLog returns commits with parents and subject", async () => {
     temp.write("a.ts", "1\n");
     temp.git("add", ".");

@@ -12,9 +12,7 @@ describe("blameFile", () => {
   });
 
   test("returns one BlameLine per HEAD line", async () => {
-    temp.write("a.ts", "one\ntwo\nthree\n");
-    temp.git("add", ".");
-    temp.git("commit", "-m", "init");
+    temp.commit({ "a.ts": "one\ntwo\nthree\n" }, "init");
 
     const lines = await blameFile(temp.root, "a.ts");
     expect(lines).toHaveLength(3);
@@ -26,12 +24,8 @@ describe("blameFile", () => {
   });
 
   test("attributes different lines to different commits", async () => {
-    temp.write("a.ts", "one\ntwo\n");
-    temp.git("add", ".");
-    temp.git("commit", "-m", "first");
-    temp.write("a.ts", "one\ntwo\nTHREE\n");
-    temp.git("add", ".");
-    temp.git("commit", "-m", "second");
+    temp.commit({ "a.ts": "one\ntwo\n" }, "first");
+    temp.commit({ "a.ts": "one\ntwo\nTHREE\n" }, "second");
 
     const lines = await blameFile(temp.root, "a.ts");
     expect(lines).toHaveLength(3);
@@ -41,11 +35,10 @@ describe("blameFile", () => {
   });
 
   test("throws for a file with no HEAD version", async () => {
-    temp.write("a.ts", "hello\n");
-    temp.git("add", ".");
-    temp.git("commit", "-m", "init");
+    temp.commit({ "a.ts": "hello\n" }, "init");
     temp.write("b.ts", "new\n");
-    // b.ts is untracked
-    await expect(blameFile(temp.root, "b.ts")).rejects.toBeDefined();
+    // b.ts is untracked — assert we throw an actual Error, not just any
+    // defined value (the previous `toBeDefined` passed for literally anything).
+    await expect(blameFile(temp.root, "b.ts")).rejects.toThrow(Error);
   });
 });

@@ -12,7 +12,13 @@ export interface Recent {
   lastOpenedAt: string;
 }
 
-export function loadRecents(): Recent[] {
+// In-memory cache. The recents file is owned by this process, so we can
+// write-through on mutation instead of re-reading the file on every call.
+// `null` before the first load so tests / fresh processes still hit disk
+// once.
+let cache: Recent[] | null = null;
+
+function readFromDisk(): Recent[] {
   if (!existsSync(RECENTS_FILE)) return [];
   try {
     const raw = readFileSync(RECENTS_FILE, "utf8");
@@ -26,9 +32,15 @@ export function loadRecents(): Recent[] {
   }
 }
 
+export function loadRecents(): Recent[] {
+  if (cache === null) cache = readFromDisk();
+  return cache;
+}
+
 export function saveRecents(recents: Recent[]): void {
   if (!existsSync(RECENTS_DIR)) mkdirSync(RECENTS_DIR, { recursive: true });
   writeFileSync(RECENTS_FILE, JSON.stringify(recents, null, 2));
+  cache = recents;
 }
 
 export function addRecent(path: string): Recent[] {

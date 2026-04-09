@@ -11,7 +11,11 @@ export function useCommitDetail(sha: string | null): {
 
   useEffect(() => {
     if (!sha) {
+      // Early-return also has to clear loading — otherwise sha → null while
+      // a fetch is in-flight leaves the previous effect's `setLoading(true)`
+      // stuck: its finally is gated by !cancelled, which the cleanup just set.
       setDetail(null);
+      setLoading(false);
       return;
     }
     let cancelled = false;

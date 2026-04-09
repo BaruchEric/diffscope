@@ -1,6 +1,6 @@
 import { createHighlighterCore, type HighlighterCore } from "shiki/core";
 import { createOnigurumaEngine } from "shiki/engine/oniguruma";
-import { resolveThemeId, THEMES, useSettings } from "../settings";
+import { CONCRETE_THEMES, resolveThemeId, useSettings } from "../settings";
 
 // Use Shiki's granular API so the bundler only ships the languages we list,
 // not every language Shiki ships out of the box. The high-level
@@ -57,7 +57,7 @@ export function activeShikiTheme(): string {
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-color-scheme: dark)").matches;
   const resolved = resolveThemeId(id, prefersDark);
-  return THEMES.find((t) => t.id === resolved)?.shikiTheme ?? "vitesse-dark";
+  return CONCRETE_THEMES[resolved].shikiTheme;
 }
 
 export function langFromPath(path: string): string {

@@ -70,19 +70,22 @@ export async function startWatcher(
   };
 
   const HEAD_REFS = new Set(["HEAD", "ORIG_HEAD", "FETCH_HEAD", "MERGE_HEAD"]);
+  const GIT_DIR = ".git";
+  const GIT_PREFIX = ".git/";
 
   const classify = (path: string, relativeTo: string): void => {
     const rel = path.startsWith(relativeTo) ? path.slice(relativeTo.length + 1) : path;
-    if (rel === ".git" || rel.startsWith(".git/")) {
-      const gitRel = rel.length > 4 ? rel.slice(5) : "";
+    if (rel === GIT_DIR) return;
+    if (rel.startsWith(GIT_PREFIX)) {
+      const gitRel = rel.slice(GIT_PREFIX.length);
       if (HEAD_REFS.has(gitRel)) batch.head = true;
       if (gitRel.startsWith("refs/")) batch.refs = true;
       if (gitRel === "index") batch.index = true;
       if (gitRel === "refs/stash" || gitRel.startsWith("logs/refs/stash")) batch.stashes = true;
-    } else {
-      batch.workingTree.add(rel);
-      if (rel === ".gitignore" || rel.endsWith("/.gitignore")) batch.gitignore = true;
+      return;
     }
+    batch.workingTree.add(rel);
+    if (rel === ".gitignore" || rel.endsWith("/.gitignore")) batch.gitignore = true;
   };
 
   try {
@@ -96,7 +99,27 @@ export async function startWatcher(
         for (const e of events) classify(e.path, repoRoot);
         schedule();
       },
-      { ignore: ["node_modules", "dist", ".DS_Store"] },
+      {
+        // Exclude common build/cache dirs that would otherwise flood the
+        // watcher — a Rust project's `target/` or a Python `.venv/` emits
+        // thousands of events per build and drowns out real edits. Keep
+        // this list deliberately narrow; noisy repos can still drop entries
+        // into their own `.gitignore`, which only helps `git status` and
+        // not the watcher.
+        ignore: [
+          "node_modules",
+          "dist",
+          "build",
+          "target",
+          ".next",
+          ".nuxt",
+          ".cache",
+          ".venv",
+          "venv",
+          "__pycache__",
+          ".DS_Store",
+        ],
+      },
     );
 
     return {

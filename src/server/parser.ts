@@ -35,6 +35,10 @@ function baseStatus(path: string): FileStatus {
   };
 }
 
+// `core.quotepath=false` (see git.ts:BASE_FLAGS) only suppresses git's
+// C-escaping of *non-ASCII* bytes — paths that contain spaces, tabs,
+// backslashes, or double quotes are still wrapped in "..." by porcelain v2
+// output. `unquote` reverses that wrapping when present.
 function unquote(s: string): string {
   if (!s.startsWith('"') || !s.endsWith('"')) return s;
   // Minimal unescape: \" → ", \\ → \, \t → \t, \n → \n

@@ -17,7 +17,7 @@ export function App() {
   const initialize = useStore((s) => s.initialize);
   const teardown = useStore((s) => s.teardown);
   const repoLoaded = useStore((s) => s.repoLoaded);
-  const tab = useStore((s) => s.tab);
+  const tab = useSettings((s) => s.lastUsedTab);
 
   useEffect(() => {
     useSettings.getState().load();

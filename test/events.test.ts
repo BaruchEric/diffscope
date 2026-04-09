@@ -25,9 +25,7 @@ describe("events + watcher integration", () => {
   let temp: TempRepo;
   beforeEach(() => {
     temp = createTempRepo();
-    temp.write("a.ts", "original\n");
-    temp.git("add", ".");
-    temp.git("commit", "-m", "init");
+    temp.commit({ "a.ts": "original\n" }, "init");
   });
   afterEach(() => {
     temp.cleanup();
@@ -71,7 +69,7 @@ describe("events + watcher integration", () => {
     await hub.stop();
   });
 
-  test("editing .gitignore re-evaluates untracked files", async () => {
+  test("editing .gitignore fires a file-removed event for the now-ignored file", async () => {
     temp.write("ignored.log", "trace\n");
     const repo = createRepo(temp.root);
     const hub = createEventHub(repo);
@@ -81,8 +79,13 @@ describe("events + watcher integration", () => {
 
     temp.write(".gitignore", "*.log\n");
 
-    // After gitignore edits, ignored.log should no longer appear as untracked
-    await new Promise((r) => setTimeout(r, 300));
+    // The hub must actually emit an event in response to the gitignore edit,
+    // not just happen to reflect the change on the next poll. Without this
+    // assertion, a broken watcher → hub path would silently pass.
+    await waitForEvent(
+      received,
+      (e) => e.type === "file-removed" && e.path === "ignored.log",
+    );
     const status = await repo.getStatus();
     expect(status.find((f) => f.path === "ignored.log")).toBeUndefined();
     await hub.stop();
