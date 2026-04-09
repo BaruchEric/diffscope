@@ -24,26 +24,7 @@ export function DiffView({ diff, loading }: Props) {
 
   const isImage = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(diff.path);
   if (isImage) {
-    return (
-      <div className="grid h-full grid-cols-2 gap-4 p-6">
-        <figure className="flex flex-col items-center gap-2">
-          <figcaption className="text-xs text-neutral-500">Before (HEAD)</figcaption>
-          <img
-            src={`/api/blob?ref=HEAD&path=${encodeURIComponent(diff.path)}`}
-            className="max-h-full max-w-full border border-neutral-200 dark:border-neutral-800"
-            alt="before"
-          />
-        </figure>
-        <figure className="flex flex-col items-center gap-2">
-          <figcaption className="text-xs text-neutral-500">After (working tree)</figcaption>
-          <img
-            src={`/api/blob?ref=WORKDIR&path=${encodeURIComponent(diff.path)}`}
-            className="max-h-full max-w-full border border-neutral-200 dark:border-neutral-800"
-            alt="after"
-          />
-        </figure>
-      </div>
-    );
+    return <ImageDiff diff={diff} />;
   }
 
   if (diff.binary) {
@@ -239,6 +220,55 @@ function useHighlightedTexts(path: string, texts: string[]): string[] | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, key]);
   return highlighted;
+}
+
+function ImageDiff({ diff }: { diff: ParsedDiff }) {
+  const [beforeMissing, setBeforeMissing] = useState(false);
+  const [afterMissing, setAfterMissing] = useState(false);
+  const beforeUrl = `/api/blob?ref=HEAD&path=${encodeURIComponent(diff.oldPath ?? diff.path)}`;
+  const afterUrl = `/api/blob?ref=WORKDIR&path=${encodeURIComponent(diff.path)}`;
+  return (
+    <div className="grid h-full grid-cols-2 gap-4 p-6">
+      <figure className="flex flex-col items-center gap-2 overflow-hidden">
+        <figcaption className="text-xs text-neutral-500">
+          {beforeMissing ? "(new file — no previous version)" : "Before (HEAD)"}
+        </figcaption>
+        {beforeMissing ? (
+          <ImagePlaceholder label="Added" />
+        ) : (
+          <img
+            src={beforeUrl}
+            onError={() => setBeforeMissing(true)}
+            className="max-h-full max-w-full border border-neutral-200 dark:border-neutral-800"
+            alt="before"
+          />
+        )}
+      </figure>
+      <figure className="flex flex-col items-center gap-2 overflow-hidden">
+        <figcaption className="text-xs text-neutral-500">
+          {afterMissing ? "(deleted — no current version)" : "After (working tree)"}
+        </figcaption>
+        {afterMissing ? (
+          <ImagePlaceholder label="Deleted" />
+        ) : (
+          <img
+            src={afterUrl}
+            onError={() => setAfterMissing(true)}
+            className="max-h-full max-w-full border border-neutral-200 dark:border-neutral-800"
+            alt="after"
+          />
+        )}
+      </figure>
+    </div>
+  );
+}
+
+function ImagePlaceholder({ label }: { label: string }) {
+  return (
+    <div className="flex h-32 w-full items-center justify-center rounded border border-dashed border-neutral-300 text-sm text-neutral-500 dark:border-neutral-700">
+      {label}
+    </div>
+  );
 }
 
 function escapeHtml(s: string): string {
