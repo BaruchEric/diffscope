@@ -135,28 +135,34 @@ function SplitColumn({
   const texts = entries.map((e) => e?.text ?? "");
   const highlighted = useHighlightedTexts(path, texts);
   return (
-    <div>
-      {entries.map((e, i) => {
-        const bg =
-          !e
-            ? "bg-neutral-50 dark:bg-neutral-900/40"
-            : e.kind === "del"
-            ? "bg-red-50 dark:bg-red-950/40"
-            : e.kind === "add"
-            ? "bg-green-50 dark:bg-green-950/40"
-            : "";
-        const num = side === "left" ? e?.oldLine : e?.newLine;
-        return (
-          <div key={i} className={`grid grid-cols-[48px_1fr] gap-2 px-2 ${bg}`}>
-            <span className="select-none text-right text-neutral-400">{num ?? ""}</span>
-            <span
-              className="whitespace-pre [&_pre]:inline [&_pre]:bg-transparent"
-              dangerouslySetInnerHTML={{ __html: highlighted?.[i] ?? escapeHtml(e?.text ?? "") }}
-            />
-          </div>
-        );
-      })}
-    </div>
+    <table className="w-max min-w-full border-collapse">
+      <tbody>
+        {entries.map((e, i) => {
+          const bg =
+            !e
+              ? "bg-neutral-50 dark:bg-neutral-900/40"
+              : e.kind === "del"
+              ? "bg-red-100 dark:bg-red-900"
+              : e.kind === "add"
+              ? "bg-green-100 dark:bg-green-900"
+              : "";
+          const num = side === "left" ? e?.oldLine : e?.newLine;
+          return (
+            <tr key={i} className={bg}>
+              <td className="w-12 select-none px-2 text-right align-top text-neutral-400">
+                {num ?? ""}
+              </td>
+              <td
+                className="whitespace-pre pr-2 align-top [&_pre]:inline [&_pre]:!bg-transparent [&_code]:!bg-transparent"
+                dangerouslySetInnerHTML={{
+                  __html: highlighted?.[i] ?? escapeHtml(e?.text ?? ""),
+                }}
+              />
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
@@ -164,27 +170,35 @@ function HunkLines({ path, lines }: { path: string; lines: DiffLine[] }) {
   const texts = lines.map((l) => l.text);
   const highlighted = useHighlightedTexts(path, texts);
   return (
-    <div>
-      {lines.map((l, i) => (
-        <div
-          key={i}
-          className={`grid grid-cols-[48px_48px_1fr] gap-2 px-2 ${
-            l.kind === "add"
-              ? "bg-green-50 dark:bg-green-950/40"
-              : l.kind === "del"
-              ? "bg-red-50 dark:bg-red-950/40"
-              : ""
-          }`}
-        >
-          <span className="select-none text-right text-neutral-400">{l.oldLine ?? ""}</span>
-          <span className="select-none text-right text-neutral-400">{l.newLine ?? ""}</span>
-          <span
-            className="whitespace-pre [&_pre]:inline [&_pre]:bg-transparent"
-            dangerouslySetInnerHTML={{ __html: highlighted?.[i] ?? escapeHtml(l.text) }}
-          />
-        </div>
-      ))}
-    </div>
+    <table className="w-max min-w-full border-collapse">
+      <tbody>
+        {lines.map((l, i) => (
+          <tr
+            key={i}
+            className={
+              l.kind === "add"
+                ? "bg-green-100 dark:bg-green-900"
+                : l.kind === "del"
+                ? "bg-red-100 dark:bg-red-900"
+                : ""
+            }
+          >
+            <td className="w-12 select-none px-2 text-right align-top text-neutral-400">
+              {l.oldLine ?? ""}
+            </td>
+            <td className="w-12 select-none px-2 text-right align-top text-neutral-400">
+              {l.newLine ?? ""}
+            </td>
+            <td
+              className="whitespace-pre pr-2 align-top [&_pre]:inline [&_pre]:!bg-transparent [&_code]:!bg-transparent"
+              dangerouslySetInnerHTML={{
+                __html: highlighted?.[i] ?? escapeHtml(l.text),
+              }}
+            />
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
