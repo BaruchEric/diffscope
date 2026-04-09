@@ -45,12 +45,28 @@ export function PaneSplitVertical({
         aria-orientation="horizontal"
         onMouseDown={onMouseDown}
         onDoubleClick={onDoubleClick}
-        className={
-          "relative h-1 w-full shrink-0 cursor-row-resize bg-neutral-200 hover:bg-blue-400 dark:bg-neutral-800" +
-          (dragging ? " bg-blue-500 dark:bg-blue-500" : "")
-        }
+        className="group relative flex h-1 w-full shrink-0 cursor-row-resize items-center justify-center"
         title="Drag to resize, double-click to reset"
-      />
+      >
+        <div
+          className={
+            "h-px w-full transition-colors " +
+            (dragging ? "bg-accent" : "bg-border group-hover:bg-accent")
+          }
+        />
+        <div
+          className={
+            "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-opacity " +
+            (dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100")
+          }
+        >
+          <div className="flex h-1 w-6 flex-row items-center justify-center gap-0.5">
+            <div className="h-0.5 w-0.5 rounded-full bg-accent-fg" />
+            <div className="h-0.5 w-0.5 rounded-full bg-accent-fg" />
+            <div className="h-0.5 w-0.5 rounded-full bg-accent-fg" />
+          </div>
+        </div>
+      </div>
       <div className="h-full min-h-0 w-full min-w-0 flex-1 overflow-hidden">
         {bottom}
       </div>

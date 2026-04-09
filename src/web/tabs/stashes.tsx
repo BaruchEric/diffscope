@@ -12,31 +12,32 @@ export function StashesTab() {
 
   return (
     <div className="grid h-full grid-cols-[360px_1fr]">
-      <div className="overflow-auto border-r border-neutral-200 dark:border-neutral-800">
+      <div className="overflow-auto border-r border-border">
         {stashes.length === 0 && (
-          <p className="p-4 text-sm text-neutral-500">No stashes.</p>
+          <p className="p-4 text-sm text-fg-muted">No stashes.</p>
         )}
         {stashes.map((s) => (
           <button
             key={s.index}
             onClick={() => focusStash(s.index)}
-            className={`block w-full truncate px-3 py-2 text-left text-sm ${
-              focusedIndex === s.index
-                ? "bg-blue-100 dark:bg-blue-900/40"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
-            }`}
+            className={
+              "block w-full truncate px-3 py-2 text-left text-sm border-l-2 " +
+              (focusedIndex === s.index
+                ? "bg-surface-hover text-fg border-accent"
+                : "text-fg-muted hover:bg-surface-hover hover:text-fg border-transparent")
+            }
           >
             <div className="truncate font-medium">stash@{"{"}{s.index}{"}"}</div>
-            <div className="truncate text-xs text-neutral-500">{s.message}</div>
+            <div className="truncate text-xs text-fg-subtle">{s.message}</div>
           </button>
         ))}
       </div>
       <div className="overflow-auto">
-        {loading && <div className="p-4 text-neutral-500">Loading stash…</div>}
+        {loading && <div className="p-4 text-fg-muted">Loading stash…</div>}
         {!loading && detail &&
           detail.diff.map((d, i) => <DiffView key={`${detail.sha}-${i}`} diff={d} />)}
         {!loading && !detail && !focused && (
-          <div className="p-4 text-neutral-500">Select a stash to view its diff.</div>
+          <div className="p-4 text-fg-muted">Select a stash to view its diff.</div>
         )}
       </div>
     </div>

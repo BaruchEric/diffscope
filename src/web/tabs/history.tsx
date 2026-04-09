@@ -59,29 +59,29 @@ export function HistoryTab() {
   }, []);
 
   const detailHeader = detail && (
-    <div className="flex h-full min-h-0 flex-col border-b border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="flex h-full min-h-0 flex-col border-b border-border bg-bg-elevated">
       <div className="flex shrink-0 items-start gap-2 px-4 pt-3">
         <button
           onClick={() => setDetailCollapsed((v) => !v)}
-          className="mt-0.5 rounded px-1 text-xs text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+          className="mt-0.5 rounded px-1 text-xs text-fg-muted hover:bg-surface-hover hover:text-fg"
           title={detailCollapsed ? "Expand details" : "Collapse details"}
           aria-expanded={!detailCollapsed}
         >
           {detailCollapsed ? "▸" : "▾"}
         </button>
-        <div className="min-w-0 flex-1 truncate text-base font-semibold">
+        <div className="min-w-0 flex-1 truncate text-base font-semibold text-fg">
           {detail.subject}
         </div>
       </div>
       {!detailCollapsed && detail.body && (
-        <pre className="mx-4 mt-2 min-h-0 flex-1 overflow-auto whitespace-pre-wrap rounded border border-neutral-200 bg-white p-2 text-xs text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-300">
+        <pre className="mx-4 mt-2 min-h-0 flex-1 overflow-auto whitespace-pre-wrap rounded border border-border bg-surface p-2 text-xs text-fg-muted">
           {detail.body}
         </pre>
       )}
-      <div className="flex shrink-0 items-center gap-3 px-4 pb-3 pt-2 text-xs text-neutral-500">
+      <div className="flex shrink-0 items-center gap-3 px-4 pb-3 pt-2 text-xs text-fg-muted">
         <button
           onClick={() => void navigator.clipboard.writeText(detail.sha)}
-          className="rounded bg-neutral-200 px-2 py-0.5 font-mono hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+          className="rounded bg-surface-hover px-2 py-0.5 font-mono text-fg hover:bg-surface-hover"
           title="Copy full SHA"
         >
           {detail.shortSha}
@@ -91,14 +91,14 @@ export function HistoryTab() {
         <div className="ml-auto flex items-center gap-1">
           <button
             onClick={collapseAll}
-            className="rounded px-2 py-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+            className="rounded px-2 py-0.5 hover:bg-surface-hover hover:text-fg"
             title="Collapse all files"
           >
             Collapse all
           </button>
           <button
             onClick={expandAll}
-            className="rounded px-2 py-0.5 hover:bg-neutral-200 dark:hover:bg-neutral-800"
+            className="rounded px-2 py-0.5 hover:bg-surface-hover hover:text-fg"
             title="Expand all files"
           >
             Expand all
@@ -110,7 +110,7 @@ export function HistoryTab() {
 
   const diffSection = (
     <div className="h-full overflow-auto">
-      {loading && <div className="p-4 text-neutral-500">Loading commit…</div>}
+      {loading && <div className="p-4 text-fg-muted">Loading commit…</div>}
       {!loading && detail &&
         detail.diff.map((d, i) => (
           <DiffView
@@ -121,38 +121,39 @@ export function HistoryTab() {
           />
         ))}
       {!loading && !detail && (
-        <div className="p-4 text-neutral-500">Select a commit to view its diff.</div>
+        <div className="p-4 text-fg-muted">Select a commit to view its diff.</div>
       )}
     </div>
   );
 
   return (
     <div className="grid h-full grid-cols-[220px_1fr] min-[900px]:grid-cols-[300px_1fr] min-[1200px]:grid-cols-[380px_1fr]">
-      <div className="flex min-w-0 flex-col border-r border-neutral-200 dark:border-neutral-800">
-        <div className="border-b border-neutral-200 p-2 dark:border-neutral-800">
+      <div className="flex min-w-0 flex-col border-r border-border">
+        <div className="border-b border-border p-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search commits…"
-            className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="w-full rounded border border-border bg-surface px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
           />
         </div>
         <div className="flex-1 overflow-auto">
           {filtered.length === 0 && (
-            <p className="p-3 text-xs text-neutral-500">No commits match.</p>
+            <p className="p-3 text-xs text-fg-muted">No commits match.</p>
           )}
           {filtered.map((c) => (
             <button
               key={c.sha}
               onClick={() => void focusCommit(c.sha)}
-              className={`block w-full truncate px-3 py-2 text-left text-sm ${
-                focused === c.sha
-                  ? "bg-blue-100 dark:bg-blue-900/40"
-                  : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
-              }`}
+              className={
+                "block w-full truncate px-3 py-2 text-left text-sm border-l-2 " +
+                (focused === c.sha
+                  ? "bg-surface-hover text-fg border-accent"
+                  : "text-fg-muted hover:bg-surface-hover hover:text-fg border-transparent")
+              }
             >
               <div className="truncate font-medium">{c.subject}</div>
-              <div className="truncate text-xs text-neutral-500">
+              <div className="truncate text-xs text-fg-subtle">
                 {c.shortSha} · {c.author} · {new Date(c.date).toLocaleString()}
               </div>
             </button>

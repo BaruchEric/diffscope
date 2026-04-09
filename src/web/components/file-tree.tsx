@@ -167,16 +167,16 @@ export function FileTree({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-1 border-b border-neutral-200 px-2 py-1 text-xs dark:border-neutral-800">
+      <div className="flex items-center gap-1 border-b border-border px-2 py-1 text-xs">
         <button
-          className="rounded px-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          className="rounded px-1 text-fg-muted hover:bg-surface-hover hover:text-fg"
           onClick={expandAll}
           title="Expand all"
         >
           ＋
         </button>
         <button
-          className="rounded px-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          className="rounded px-1 text-fg-muted hover:bg-surface-hover hover:text-fg"
           onClick={collapseAll}
           title="Collapse all"
         >
@@ -189,16 +189,16 @@ export function FileTree({
             {node.isDir ? (
               <button
                 onClick={() => toggle(node.fullPath)}
-                className="flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                className="flex w-full items-center gap-1 px-2 py-0.5 text-left text-fg-muted hover:bg-surface-hover hover:text-fg"
                 style={{ paddingLeft: 8 + depth * 12 }}
               >
-                <span className="w-3 text-neutral-500">
+                <span className="w-3 text-fg-subtle">
                   {isExpanded(node.fullPath) ? "▾" : "▸"}
                 </span>
-                <span className="text-neutral-700 dark:text-neutral-300">
+                <span className="text-fg">
                   {node.name}
                 </span>
-                <span className="ml-1 text-neutral-400">
+                <span className="ml-1 text-fg-subtle">
                   {countChanges(node)}
                 </span>
               </button>
@@ -206,10 +206,10 @@ export function FileTree({
               <button
                 onClick={() => node.file && onFileClick(node.file.path)}
                 className={
-                  "flex w-full items-center gap-1 px-2 py-0.5 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 " +
+                  "flex w-full items-center gap-1 px-2 py-0.5 text-left border-l-2 " +
                   (focusedPath === node.file?.path
-                    ? "bg-blue-100 dark:bg-blue-900"
-                    : "")
+                    ? "bg-surface-hover text-fg border-accent"
+                    : "text-fg-muted hover:bg-surface-hover hover:text-fg border-transparent")
                 }
                 style={{ paddingLeft: 8 + (depth + 1) * 12 }}
               >

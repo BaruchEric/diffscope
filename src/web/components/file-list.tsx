@@ -48,8 +48,8 @@ export function FileList() {
   );
 
   return (
-    <div className="flex h-full flex-col border-r border-neutral-200 dark:border-neutral-800">
-      <div className="border-b border-neutral-200 p-2 dark:border-neutral-800">
+    <div className="flex h-full flex-col border-r border-border">
+      <div className="border-b border-border p-2">
         <div className="mb-2 flex items-center gap-1">
           <button
             onClick={() => setSettings({ fileListMode: "flat" })}
@@ -58,8 +58,8 @@ export function FileList() {
             className={
               "rounded px-1 text-xs " +
               (fileListMode === "flat"
-                ? "bg-neutral-200 dark:bg-neutral-700"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-800")
+                ? "bg-surface-hover text-fg"
+                : "text-fg-muted hover:bg-surface-hover hover:text-fg")
             }
           >
             ☰
@@ -71,8 +71,8 @@ export function FileList() {
             className={
               "rounded px-1 text-xs " +
               (fileListMode === "tree"
-                ? "bg-neutral-200 dark:bg-neutral-700"
-                : "hover:bg-neutral-100 dark:hover:bg-neutral-800")
+                ? "bg-surface-hover text-fg"
+                : "text-fg-muted hover:bg-surface-hover hover:text-fg")
             }
           >
             ▾
@@ -82,7 +82,7 @@ export function FileList() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter files… (/)"
-          className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          className="w-full rounded border border-border bg-surface px-2 py-1 text-sm text-fg focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
           data-filter-input
         />
       </div>
@@ -97,18 +97,19 @@ export function FileList() {
           groups.map((g) =>
             g.files.length === 0 ? null : (
               <div key={g.kind}>
-                <div className="sticky top-0 bg-neutral-100 px-2 py-1 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
+                <div className="sticky top-0 bg-bg-elevated px-2 py-1 text-xs font-medium uppercase tracking-wide text-fg-muted">
                   {g.label} ({g.files.length})
                 </div>
                 {g.files.map((f) => (
                   <button
                     key={`${g.kind}-${f.path}`}
                     onClick={() => void focusFile(f.path)}
-                    className={`flex w-full items-center gap-2 truncate px-2 py-1 text-left text-sm ${
-                      focusedPath === f.path
-                        ? "bg-blue-100 dark:bg-blue-900/40"
-                        : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
-                    }`}
+                    className={
+                      "flex w-full items-center gap-2 truncate px-2 py-1 text-left text-sm border-l-2 " +
+                      (focusedPath === f.path
+                        ? "bg-surface-hover text-fg border-accent"
+                        : "text-fg-muted hover:bg-surface-hover hover:text-fg border-transparent")
+                    }
                   >
                     <ChangeBadge file={f} groupKind={g.kind} />
                     <span className="flex-1 truncate">{f.path}</span>
@@ -130,11 +131,11 @@ function DiffStats({ file }: { file: FileStatus }) {
   return (
     <span className="shrink-0 font-mono text-[11px] tabular-nums">
       {file.added !== undefined && file.added > 0 && (
-        <span className="text-green-600 dark:text-green-400">+{file.added}</span>
+        <span className="text-diff-add-sign">+{file.added}</span>
       )}
       {file.added !== undefined && file.added > 0 && file.deleted !== undefined && file.deleted > 0 && " "}
       {file.deleted !== undefined && file.deleted > 0 && (
-        <span className="text-red-600 dark:text-red-400">−{file.deleted}</span>
+        <span className="text-diff-del-sign">−{file.deleted}</span>
       )}
     </span>
   );
@@ -157,13 +158,15 @@ function ChangeBadge({
         : change === "renamed"
           ? "R"
           : "M";
+  // Staged rows render in neutral fg (matches the status-bar staged convention).
+  // Otherwise: add/del use diff-sign colors, rename and modify share the accent.
   const color =
-    change === "added"
-      ? "text-green-600"
-      : change === "deleted"
-        ? "text-red-600"
-        : change === "renamed"
-          ? "text-purple-600"
-          : "text-amber-600";
+    groupKind === "staged"
+      ? "text-fg"
+      : change === "added"
+        ? "text-diff-add-sign"
+        : change === "deleted"
+          ? "text-diff-del-sign"
+          : "text-accent";
   return <span className={`font-mono text-xs ${color}`}>{letter}</span>;
 }
