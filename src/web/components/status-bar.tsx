@@ -33,7 +33,7 @@ export function StatusBar() {
         </span>
       )}
       <span className="text-fg-subtle">
-        {staged > 0 && <span className="text-diff-add-sign">+{staged} staged</span>}
+        {staged > 0 && <span className="text-fg">+{staged} staged</span>}
         {staged > 0 && (unstaged > 0 || untracked > 0) && " · "}
         {unstaged > 0 && <span className="text-accent">{unstaged} unstaged</span>}
         {unstaged > 0 && untracked > 0 && " · "}
