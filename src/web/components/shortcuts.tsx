@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../store";
+import { useSettings } from "../settings";
 
 const SHORTCUTS = [
   ["j / k", "Next / previous file"],
@@ -44,6 +45,11 @@ export function Shortcuts() {
       }
       if (e.key === "u") {
         s.setDiffMode(s.diffMode === "unified" ? "split" : "unified");
+        return;
+      }
+      if (e.key === "t") {
+        const cur = useSettings.getState().fileListMode;
+        useSettings.getState().set({ fileListMode: cur === "tree" ? "flat" : "tree" });
         return;
       }
       if (e.key === "/") {

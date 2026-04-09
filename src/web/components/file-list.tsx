@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import type { FileStatus } from "@shared/types";
 import { useStore } from "../store";
+import { useSettings } from "../settings";
+import { FileTree } from "./file-tree";
 
 interface Group {
   label: string;
@@ -70,6 +72,8 @@ export function FileList() {
   const status = useStore((s) => s.status);
   const focusedPath = useStore((s) => s.focusedPath);
   const focusFile = useStore((s) => s.focusFile);
+  const fileListMode = useSettings((s) => s.fileListMode);
+  const setSettings = useSettings((s) => s.set);
   const [filter, setFilter] = useState("");
 
   const groups = useMemo(
@@ -84,6 +88,34 @@ export function FileList() {
   return (
     <div className="flex h-full flex-col border-r border-neutral-200 dark:border-neutral-800">
       <div className="border-b border-neutral-200 p-2 dark:border-neutral-800">
+        <div className="mb-2 flex items-center gap-1">
+          <button
+            onClick={() => setSettings({ fileListMode: "flat" })}
+            title="Flat list"
+            aria-pressed={fileListMode === "flat"}
+            className={
+              "rounded px-1 text-xs " +
+              (fileListMode === "flat"
+                ? "bg-neutral-200 dark:bg-neutral-700"
+                : "hover:bg-neutral-100 dark:hover:bg-neutral-800")
+            }
+          >
+            ☰
+          </button>
+          <button
+            onClick={() => setSettings({ fileListMode: "tree" })}
+            title="Tree view"
+            aria-pressed={fileListMode === "tree"}
+            className={
+              "rounded px-1 text-xs " +
+              (fileListMode === "tree"
+                ? "bg-neutral-200 dark:bg-neutral-700"
+                : "hover:bg-neutral-100 dark:hover:bg-neutral-800")
+            }
+          >
+            ▾
+          </button>
+        </div>
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -93,29 +125,37 @@ export function FileList() {
         />
       </div>
       <div className="flex-1 overflow-auto">
-        {groups.map((g) =>
-          g.files.length === 0 ? null : (
-            <div key={g.label}>
-              <div className="sticky top-0 bg-neutral-100 px-2 py-1 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
-                {g.label} ({g.files.length})
+        {fileListMode === "tree" ? (
+          <FileTree
+            files={status}
+            focusedPath={focusedPath}
+            onFileClick={(p) => void focusFile(p)}
+          />
+        ) : (
+          groups.map((g) =>
+            g.files.length === 0 ? null : (
+              <div key={g.label}>
+                <div className="sticky top-0 bg-neutral-100 px-2 py-1 text-xs font-medium uppercase tracking-wide text-neutral-500 dark:bg-neutral-900">
+                  {g.label} ({g.files.length})
+                </div>
+                {g.files.map((f) => (
+                  <button
+                    key={`${g.label}-${f.path}`}
+                    onClick={() => void focusFile(f.path)}
+                    className={`flex w-full items-center gap-2 truncate px-2 py-1 text-left text-sm ${
+                      focusedPath === f.path
+                        ? "bg-blue-100 dark:bg-blue-900/40"
+                        : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                    }`}
+                  >
+                    <ChangeBadge file={f} group={g.label} />
+                    <span className="flex-1 truncate">{f.path}</span>
+                    <DiffStats file={f} />
+                  </button>
+                ))}
               </div>
-              {g.files.map((f) => (
-                <button
-                  key={`${g.label}-${f.path}`}
-                  onClick={() => void focusFile(f.path)}
-                  className={`flex w-full items-center gap-2 truncate px-2 py-1 text-left text-sm ${
-                    focusedPath === f.path
-                      ? "bg-blue-100 dark:bg-blue-900/40"
-                      : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
-                  }`}
-                >
-                  <ChangeBadge file={f} group={g.label} />
-                  <span className="flex-1 truncate">{f.path}</span>
-                  <DiffStats file={f} />
-                </button>
-              ))}
-            </div>
-          ),
+            ),
+          )
         )}
       </div>
     </div>
