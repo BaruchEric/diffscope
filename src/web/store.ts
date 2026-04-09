@@ -63,7 +63,10 @@ export const useStore = create<StoreState>((set, get) => ({
   error: null,
   sse: null,
 
-  setTab: (tab) => set({ tab }),
+  setTab: (tab) => {
+    localStorage.setItem("diffscope:tab", tab);
+    set({ tab });
+  },
   setDiffMode: (mode) => {
     localStorage.setItem("diffscope:diffMode", mode);
     set({ diffMode: mode });
@@ -89,6 +92,10 @@ export const useStore = create<StoreState>((set, get) => ({
   initialize: async () => {
     const savedMode = localStorage.getItem("diffscope:diffMode") as DiffMode | null;
     if (savedMode) set({ diffMode: savedMode });
+    const savedTab = localStorage.getItem("diffscope:tab") as Tab | null;
+    if (savedTab && ["working-tree", "history", "branches", "stashes"].includes(savedTab)) {
+      set({ tab: savedTab });
+    }
     const info = await api
       .info()
       .catch(() => ({ loaded: false }) as { loaded: boolean; root?: string });
