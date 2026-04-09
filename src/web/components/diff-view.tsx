@@ -90,7 +90,7 @@ export function DiffView({ diff, loading }: Props) {
           {mode === "unified" ? (
             <HunkLines path={diff.path} lines={h.lines} />
           ) : (
-            <SplitHunk lines={h.lines} />
+            <SplitHunk path={diff.path} lines={h.lines} />
           )}
         </div>
       ))}
@@ -103,7 +103,7 @@ interface SplitRow {
   right: DiffLine | null;
 }
 
-function SplitHunk({ lines }: { lines: DiffLine[] }) {
+function SplitHunk({ path, lines }: { path: string; lines: DiffLine[] }) {
   // Pair deletions with additions greedily: emit left/right rows.
   const rows: SplitRow[] = [];
   let i = 0;
@@ -136,19 +136,23 @@ function SplitHunk({ lines }: { lines: DiffLine[] }) {
 
   return (
     <div className="grid grid-cols-2 divide-x divide-neutral-200 dark:divide-neutral-800">
-      <SplitColumn entries={rows.map((r) => r.left)} side="left" />
-      <SplitColumn entries={rows.map((r) => r.right)} side="right" />
+      <SplitColumn path={path} entries={rows.map((r) => r.left)} side="left" />
+      <SplitColumn path={path} entries={rows.map((r) => r.right)} side="right" />
     </div>
   );
 }
 
 function SplitColumn({
+  path,
   entries,
   side,
 }: {
+  path: string;
   entries: (DiffLine | null)[];
   side: "left" | "right";
 }) {
+  const texts = entries.map((e) => e?.text ?? "");
+  const highlighted = useHighlightedTexts(path, texts);
   return (
     <div>
       {entries.map((e, i) => {
@@ -164,7 +168,10 @@ function SplitColumn({
         return (
           <div key={i} className={`grid grid-cols-[48px_1fr] gap-2 px-2 ${bg}`}>
             <span className="select-none text-right text-neutral-400">{num ?? ""}</span>
-            <span className="whitespace-pre">{e?.text ?? ""}</span>
+            <span
+              className="whitespace-pre [&_pre]:inline [&_pre]:bg-transparent"
+              dangerouslySetInnerHTML={{ __html: highlighted?.[i] ?? escapeHtml(e?.text ?? "") }}
+            />
           </div>
         );
       })}
@@ -173,30 +180,8 @@ function SplitColumn({
 }
 
 function HunkLines({ path, lines }: { path: string; lines: DiffLine[] }) {
-  const [highlighted, setHighlighted] = useState<string[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      const highlighter = await getHighlighter();
-      const lang = langFromPath(path);
-      const isDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
-      const theme = isDark ? "github-dark" : "github-light";
-      const html = lines.map((l) => {
-        try {
-          return highlighter.codeToHtml(l.text, { lang, theme });
-        } catch {
-          return escapeHtml(l.text);
-        }
-      });
-      if (!cancelled) setHighlighted(html);
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [path, lines]);
-
+  const texts = lines.map((l) => l.text);
+  const highlighted = useHighlightedTexts(path, texts);
   return (
     <div>
       {lines.map((l, i) => (
@@ -220,6 +205,40 @@ function HunkLines({ path, lines }: { path: string; lines: DiffLine[] }) {
       ))}
     </div>
   );
+}
+
+/**
+ * Async-highlight an array of text lines via Shiki, returning HTML strings or
+ * null while loading. Used by both unified and split diff renderers.
+ */
+function useHighlightedTexts(path: string, texts: string[]): string[] | null {
+  const [highlighted, setHighlighted] = useState<string[] | null>(null);
+  // Cheap stable key — texts arrays are line-by-line, joining with NUL is
+  // cheap and avoids re-running the effect on every parent render.
+  const key = texts.join("\x00");
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const highlighter = await getHighlighter();
+      const lang = langFromPath(path);
+      const isDark =
+        window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+      const theme = isDark ? "github-dark" : "github-light";
+      const html = texts.map((text) => {
+        try {
+          return highlighter.codeToHtml(text, { lang, theme });
+        } catch {
+          return escapeHtml(text);
+        }
+      });
+      if (!cancelled) setHighlighted(html);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, key]);
+  return highlighted;
 }
 
 function escapeHtml(s: string): string {
