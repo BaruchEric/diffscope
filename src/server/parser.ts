@@ -1,5 +1,5 @@
 // src/server/parser.ts
-import type { DiffHunk, DiffLine, FileChangeType, FileStatus, ParsedDiff } from "../shared/types";
+import type { Commit, DiffHunk, DiffLine, FileChangeType, FileStatus, ParsedDiff } from "../shared/types";
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico"]);
 
@@ -177,4 +177,36 @@ export function parseDiff(raw: string): ParsedDiff[] {
   }
 
   return results;
+}
+
+const RECORD_SEP = "\x1e";
+
+export function parseLog(raw: string): Commit[] {
+  const records = raw.split(RECORD_SEP).filter((r) => r.length > 0);
+  const commits: Commit[] = [];
+  for (const record of records) {
+    const fields = record.split("\x00");
+    if (fields.length < 8) continue;
+    const [sha, shortSha, parents, author, authorEmail, date, refs, subject] = fields as [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ];
+    commits.push({
+      sha,
+      shortSha,
+      parents: parents ? parents.split(" ").filter((p) => p.length > 0) : [],
+      author,
+      authorEmail,
+      date,
+      refs: refs ? refs.split(", ").filter((r) => r.length > 0) : [],
+      subject,
+    });
+  }
+  return commits;
 }

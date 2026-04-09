@@ -158,3 +158,26 @@ describe("parseDiff", () => {
     expect(lines.filter((l) => l.kind === "del")).toHaveLength(1);
   });
 });
+
+import { parseLog } from "../src/server/parser";
+
+describe("parseLog", () => {
+  test("parses NUL-delimited log output", () => {
+    const raw = readFileSync(join(import.meta.dir, "fixtures/log/basic.txt"), "utf8");
+    const commits = parseLog(raw);
+    expect(commits).toHaveLength(2);
+    expect(commits[0]).toEqual({
+      sha: "1111111111111111111111111111111111111111",
+      shortSha: "1111111",
+      parents: ["2222222222222222222222222222222222222222"],
+      author: "Alice",
+      authorEmail: "alice@example.com",
+      date: "2026-04-08T10:00:00+00:00",
+      refs: ["HEAD -> main", "origin/main"],
+      subject: "feat: initial commit",
+    });
+    expect(commits[1]!.parents).toEqual([]);
+    expect(commits[1]!.refs).toEqual([]);
+    expect(commits[1]!.author).toBe("Bob Smith");
+  });
+});
