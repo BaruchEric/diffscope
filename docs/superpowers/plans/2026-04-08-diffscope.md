@@ -79,7 +79,7 @@ diffscope/
 - Create: `src/shared/.gitkeep`
 - Create: `test/.gitkeep`
 
-- [ ] **Step 1: Create `package.json`**
+- [x] **Step 1: Create `package.json`**
 
 ```json
 {
@@ -117,7 +117,6 @@ diffscope/
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ES2022"],
-    "types": ["bun-types"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
@@ -143,18 +142,16 @@ touch src/server/.gitkeep src/web/.gitkeep src/shared/.gitkeep test/.gitkeep
 - [ ] **Step 4: Install dependencies**
 
 Run: `bun install`
-Expected: creates `bun.lockb`, installs `@parcel/watcher` and `typescript`.
+Expected: creates `bun.lock`, installs `@parcel/watcher` and `typescript`.
 
-- [ ] **Step 5: Verify typecheck passes on empty project**
+- [ ] **Step 5: Typecheck (informational only — expected to fail)**
 
-Run: `bun run typecheck` (web tsconfig doesn't exist yet, so expect one error — that's fine for now; we'll add the file in Task 15)
-
-Temporary workaround: run `bun x tsc --noEmit` instead. Expected: no errors.
+With zero `.ts` files in the project yet, `bun x tsc --noEmit` will fail with `TS18003: No inputs were found`. This is expected — Task 2 adds `src/shared/types.ts` which makes the typecheck pass. Skip this step and move on to commit.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add package.json tsconfig.json bun.lockb src/ test/ bin/
+git add package.json tsconfig.json bun.lock src/ test/ bin/
 git commit -m "chore: scaffold diffscope package"
 ```
 
@@ -2662,7 +2659,7 @@ Expected: both succeed. `dist/web/index.html` exists.
 - [ ] **Step 11: Commit**
 
 ```bash
-git add tsconfig.web.json vite.config.ts tailwind.config.ts postcss.config.js index.html src/web/main.tsx src/web/app.tsx src/web/index.css package.json bun.lockb
+git add tsconfig.web.json vite.config.ts tailwind.config.ts postcss.config.js index.html src/web/main.tsx src/web/app.tsx src/web/index.css package.json bun.lock
 git commit -m "feat(web): scaffold Vite + React + Tailwind"
 ```
 
