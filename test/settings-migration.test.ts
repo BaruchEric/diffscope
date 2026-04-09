@@ -30,6 +30,14 @@ describe("migrateLegacyTheme", () => {
     expect(migrateLegacyTheme(undefined)).toBe("auto");
     expect(migrateLegacyTheme(null as unknown as string)).toBe("auto");
   });
+
+  test("is idempotent — migrating a migrated value is stable", () => {
+    expect(migrateLegacyTheme(migrateLegacyTheme("dark"))).toBe("midnight");
+    expect(migrateLegacyTheme(migrateLegacyTheme("light"))).toBe("paper");
+    expect(migrateLegacyTheme(migrateLegacyTheme("system"))).toBe("auto");
+    expect(migrateLegacyTheme(migrateLegacyTheme("nonsense"))).toBe("auto");
+    expect(migrateLegacyTheme(migrateLegacyTheme(undefined))).toBe("auto");
+  });
 });
 
 describe("resolveThemeId", () => {
