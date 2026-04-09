@@ -68,13 +68,36 @@ export function HistoryTab() {
           ))}
         </div>
       </div>
-      <div className="overflow-auto">
-        {loading && <div className="p-4 text-neutral-500">Loading commit…</div>}
-        {!loading && detail &&
-          detail.diff.map((d, i) => <DiffView key={`${detail.sha}-${i}`} diff={d} />)}
-        {!loading && !detail && (
-          <div className="p-4 text-neutral-500">Select a commit to view its diff.</div>
+      <div className="flex flex-col overflow-hidden">
+        {detail && (
+          <div className="border-b border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="mb-1 text-base font-semibold">{detail.subject}</div>
+            {detail.body && (
+              <pre className="mb-2 whitespace-pre-wrap text-xs text-neutral-700 dark:text-neutral-300">
+                {detail.body}
+              </pre>
+            )}
+            <div className="flex items-center gap-3 text-xs text-neutral-500">
+              <button
+                onClick={() => void navigator.clipboard.writeText(detail.sha)}
+                className="rounded bg-neutral-200 px-2 py-0.5 font-mono hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700"
+                title="Copy full SHA"
+              >
+                {detail.shortSha}
+              </button>
+              <span>{detail.author}</span>
+              <span>{new Date(detail.date).toLocaleString()}</span>
+            </div>
+          </div>
         )}
+        <div className="flex-1 overflow-auto">
+          {loading && <div className="p-4 text-neutral-500">Loading commit…</div>}
+          {!loading && detail &&
+            detail.diff.map((d, i) => <DiffView key={`${detail.sha}-${i}`} diff={d} />)}
+          {!loading && !detail && (
+            <div className="p-4 text-neutral-500">Select a commit to view its diff.</div>
+          )}
+        </div>
       </div>
     </div>
   );
