@@ -28,6 +28,7 @@ export default {
         accent: {
           DEFAULT: "var(--accent)",
           fg: "var(--accent-fg)",
+          "fg-soft": "var(--accent-fg-soft)",
           soft: "var(--accent-soft)",
         },
         "diff-add": {

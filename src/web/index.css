@@ -30,6 +30,7 @@ body,
 
   --accent:         #67e8f9;
   --accent-fg:      #0b0d10;
+  --accent-fg-soft: rgba(11, 13, 16, 0.22);
   --accent-soft:    rgba(103, 232, 249, 0.12);
 
   --diff-add-bg:    rgba(34, 197, 94, 0.08);
@@ -68,6 +69,7 @@ body,
 
   --accent:         #c2410c;
   --accent-fg:      #faf7f1;
+  --accent-fg-soft: rgba(250, 247, 241, 0.22);
   --accent-soft:    rgba(194, 65, 12, 0.10);
 
   --diff-add-bg:    #ecfdf5;
@@ -106,6 +108,7 @@ body,
 
   --accent:         #b45309;
   --accent-fg:      #ffffff;
+  --accent-fg-soft: rgba(255, 255, 255, 0.24);
   --accent-soft:    rgba(180, 83, 9, 0.10);
 
   --diff-add-bg:    #fefce8;
