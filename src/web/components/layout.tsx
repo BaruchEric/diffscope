@@ -18,6 +18,16 @@ export function Layout({ children }: { children: ReactNode }) {
   const repo = useStore((s) => s.repo);
   const diffMode = useStore((s) => s.diffMode);
   const setDiffMode = useStore((s) => s.setDiffMode);
+  const status = useStore((s) => s.status);
+  const branches = useStore((s) => s.branches);
+  const stashes = useStore((s) => s.stashes);
+
+  const counts: Record<Tab, number> = {
+    "working-tree": status.length,
+    history: 0,
+    branches: branches.length,
+    stashes: stashes.length,
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -33,13 +43,24 @@ export function Layout({ children }: { children: ReactNode }) {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`rounded px-3 py-1 text-sm ${
+              className={`flex items-center gap-1.5 rounded px-3 py-1 text-sm ${
                 tab === t.key
                   ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
                   : "text-neutral-600 hover:bg-neutral-200 dark:text-neutral-400 dark:hover:bg-neutral-800"
               }`}
             >
               {t.label}
+              {counts[t.key] > 0 && t.key !== "history" && (
+                <span
+                  className={`rounded-full px-1.5 text-[10px] tabular-nums ${
+                    tab === t.key
+                      ? "bg-neutral-700 text-neutral-100 dark:bg-neutral-300 dark:text-neutral-800"
+                      : "bg-neutral-200 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                  }`}
+                >
+                  {counts[t.key]}
+                </span>
+              )}
             </button>
           ))}
         </nav>
