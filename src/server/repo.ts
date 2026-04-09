@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
-import { parseStatus } from "./parser";
-import type { FileStatus } from "../shared/types";
+import { parseDiff, parseLog, parseStatus } from "./parser";
+import type { Commit, CommitDetail, FileStatus, ParsedDiff } from "../shared/types";
+
+const LOG_FORMAT = "%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%D%x00%s%x00%b%x1e";
 
 export class GitError extends Error {
   constructor(
@@ -32,6 +34,9 @@ export interface Repo {
   readonly cwd: string;
   getRepoRoot(): Promise<string>;
   getStatus(): Promise<FileStatus[]>;
+  getFileDiff(path: string, opts: { staged: boolean }): Promise<ParsedDiff | null>;
+  getLog(opts: { limit: number; offset: number }): Promise<Commit[]>;
+  getCommit(sha: string): Promise<CommitDetail>;
 }
 
 export function createRepo(cwd: string): Repo {
@@ -44,6 +49,35 @@ export function createRepo(cwd: string): Repo {
     async getStatus() {
       const out = await runGit(cwd, ["status", "--porcelain=v2"]);
       return parseStatus(out);
+    },
+    async getFileDiff(path, { staged }) {
+      const args = ["diff", "--patch", "--no-color"];
+      if (staged) args.push("--cached");
+      args.push("--", path);
+      const out = await runGit(cwd, args);
+      if (!out.trim()) return null;
+      const parsed = parseDiff(out);
+      return parsed[0] ?? null;
+    },
+    async getLog({ limit, offset }) {
+      const out = await runGit(cwd, [
+        "log",
+        `--format=${LOG_FORMAT}`,
+        `--max-count=${limit}`,
+        `--skip=${offset}`,
+      ]);
+      return parseLog(out);
+    },
+    async getCommit(sha) {
+      const [metaRaw, diffRaw] = await Promise.all([
+        runGit(cwd, ["log", "-1", `--format=${LOG_FORMAT}`, sha]),
+        runGit(cwd, ["show", "--patch", "--format=", "--no-color", sha]),
+      ]);
+      const meta = parseLog(metaRaw)[0];
+      if (!meta) throw new Error(`commit ${sha} not found`);
+      const diff = parseDiff(diffRaw);
+      // Extract body from metaRaw's last field (empty string in fixtures — body came from log format's %b)
+      return { ...meta, body: "", diff };
     },
   };
 }

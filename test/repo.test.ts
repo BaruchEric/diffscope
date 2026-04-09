@@ -38,4 +38,62 @@ describe("repo", () => {
     expect(byPath.get("a.ts")?.unstaged).toBe("modified");
     expect(byPath.get("b.ts")?.isUntracked).toBe(true);
   });
+
+  test("getFileDiff returns parsed unstaged diff", async () => {
+    temp.write("a.ts", "one\ntwo\nthree\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+    temp.write("a.ts", "one\nTWO\nthree\n");
+
+    const repo = createRepo(temp.root);
+    const diff = await repo.getFileDiff("a.ts", { staged: false });
+    expect(diff).not.toBeNull();
+    expect(diff!.path).toBe("a.ts");
+    expect(diff!.hunks.length).toBeGreaterThan(0);
+  });
+
+  test("getFileDiff returns parsed staged diff", async () => {
+    temp.write("a.ts", "one\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+    temp.write("a.ts", "one\ntwo\n");
+    temp.git("add", "a.ts");
+
+    const repo = createRepo(temp.root);
+    const diff = await repo.getFileDiff("a.ts", { staged: true });
+    expect(diff!.hunks[0]!.lines.some((l) => l.kind === "add")).toBe(true);
+  });
+
+  test("getLog returns commits with parents and subject", async () => {
+    temp.write("a.ts", "1\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "first");
+    temp.write("a.ts", "2\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "second");
+
+    const repo = createRepo(temp.root);
+    const commits = await repo.getLog({ limit: 10, offset: 0 });
+    expect(commits).toHaveLength(2);
+    expect(commits[0]!.subject).toBe("second");
+    expect(commits[1]!.subject).toBe("first");
+    expect(commits[0]!.parents).toHaveLength(1);
+    expect(commits[1]!.parents).toHaveLength(0);
+  });
+
+  test("getCommit returns commit detail with diff", async () => {
+    temp.write("a.ts", "original\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "first");
+    temp.write("a.ts", "changed\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "second");
+    const headSha = temp.git("rev-parse", "HEAD").stdout.trim();
+
+    const repo = createRepo(temp.root);
+    const detail = await repo.getCommit(headSha);
+    expect(detail.sha).toBe(headSha);
+    expect(detail.subject).toBe("second");
+    expect(detail.diff.length).toBeGreaterThan(0);
+  });
 });
