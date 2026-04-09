@@ -110,6 +110,62 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
       }
     }
 
+    // SSE stream
+    if (pathname === "/api/stream") {
+      if (!hub) return json({ error: "no repo loaded" }, 400);
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
+          const send = (event: unknown) => {
+            const data = `data: ${JSON.stringify(event)}\n\n`;
+            controller.enqueue(encoder.encode(data));
+          };
+          const { snapshot, unsubscribe } = hub!.subscribe((event) => send(event));
+          send(snapshot);
+          // Keepalive ping every 25s to prevent proxy timeouts
+          const keepalive = setInterval(() => {
+            controller.enqueue(encoder.encode(`: keepalive\n\n`));
+          }, 25000);
+          req.signal.addEventListener("abort", () => {
+            clearInterval(keepalive);
+            unsubscribe();
+            try {
+              controller.close();
+            } catch {
+              // already closed
+            }
+          });
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          "content-type": "text/event-stream",
+          "cache-control": "no-cache",
+          connection: "keep-alive",
+        },
+      });
+    }
+
+    // Static SPA fallback
+    if (!pathname.startsWith("/api/")) {
+      const fsPath =
+        pathname === "/"
+          ? `${opts.staticDir}/index.html`
+          : `${opts.staticDir}${pathname}`;
+      const file = Bun.file(fsPath);
+      if (await file.exists()) {
+        return new Response(file);
+      }
+      // SPA fallback — route not found on disk → serve index.html
+      const index = Bun.file(`${opts.staticDir}/index.html`);
+      if (await index.exists()) {
+        return new Response(index);
+      }
+      return new Response("frontend not built — run `bun run build:web`", {
+        status: 503,
+      });
+    }
+
     return json({ error: "not found" }, 404);
   };
 
