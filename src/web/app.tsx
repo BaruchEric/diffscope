@@ -8,12 +8,24 @@ import { HistoryTab } from "./tabs/history";
 import { BranchesTab } from "./tabs/branches";
 import { StashesTab } from "./tabs/stashes";
 import { useStore } from "./store";
+import { useSettings, getSettings } from "./settings";
+import { applyTheme } from "./theme";
 
 export function App() {
   const initialize = useStore((s) => s.initialize);
   const teardown = useStore((s) => s.teardown);
   const repoLoaded = useStore((s) => s.repoLoaded);
   const tab = useStore((s) => s.tab);
+
+  useEffect(() => {
+    useSettings.getState().load();
+    applyTheme(getSettings().theme);
+  }, []);
+
+  useEffect(() => {
+    const unsub = useSettings.subscribe((s) => applyTheme(s.theme));
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     void initialize();

@@ -10,6 +10,7 @@ import type {
 } from "@shared/types";
 import { api } from "./lib/api";
 import { openSseStream, type SseClient } from "./lib/sse-client";
+import { useSettings, getSettings } from "./settings";
 
 export type Tab = "working-tree" | "history" | "branches" | "stashes";
 export type DiffMode = "unified" | "split";
@@ -75,11 +76,11 @@ export const useStore = create<StoreState>((set, get) => ({
   sse: null,
 
   setTab: (tab) => {
-    localStorage.setItem("diffscope:tab", tab);
+    useSettings.getState().set({ lastUsedTab: tab });
     set({ tab });
   },
   setDiffMode: (mode) => {
-    localStorage.setItem("diffscope:diffMode", mode);
+    useSettings.getState().set({ diffMode: mode });
     set({ diffMode: mode });
   },
   togglePaused: () => set((s) => ({ paused: !s.paused })),
@@ -101,12 +102,10 @@ export const useStore = create<StoreState>((set, get) => ({
   focusStash: (index) => set({ focusedStashIndex: index }),
 
   initialize: async () => {
-    const savedMode = localStorage.getItem("diffscope:diffMode") as DiffMode | null;
-    if (savedMode) set({ diffMode: savedMode });
-    const savedTab = localStorage.getItem("diffscope:tab") as Tab | null;
-    if (savedTab && ["working-tree", "history", "branches", "stashes"].includes(savedTab)) {
-      set({ tab: savedTab });
-    }
+    const s = getSettings();
+    const initialTab: Tab =
+      s.defaultTab === "last-used" ? s.lastUsedTab : s.defaultTab;
+    set({ tab: initialTab, diffMode: s.diffMode });
     const info = await api
       .info()
       .catch(() => ({ loaded: false }) as { loaded: boolean; root?: string });
