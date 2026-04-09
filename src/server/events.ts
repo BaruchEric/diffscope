@@ -140,10 +140,17 @@ export function createEventHub(repo: Repo): EventHub {
       } catch {
         // empty / no stash ref yet — ignore
       }
+      // Serialize handler dispatch — concurrent handlers would race on
+      // statusSnapshot/branchesSnapshot/etc. and could emit duplicate or
+      // out-of-order events. Chaining onto an inflight promise guarantees
+      // each event sees the result of the previous one.
+      let inflight: Promise<void> = Promise.resolve();
       watcherHandle = await startWatcher(
         repo.cwd,
         (event) => {
-          void handleWatcherEvent(event);
+          inflight = inflight
+            .then(() => handleWatcherEvent(event))
+            .catch(() => {});
         },
         (err) => emit({ type: "warning", message: err.message }),
       );

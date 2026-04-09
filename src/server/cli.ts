@@ -49,7 +49,14 @@ export async function main(argv: readonly string[]): Promise<void> {
     repoPath = findRepoRoot(process.cwd());
   }
 
-  const port = await pickPort();
+  // DIFFSCOPE_DEV_PORT pins the backend port for the dev workflow so the
+  // Vite dev server's proxy target stays stable across restarts.
+  const envPort = process.env.DIFFSCOPE_DEV_PORT;
+  const port = envPort ? parseInt(envPort, 10) : await pickPort();
+  if (envPort && (Number.isNaN(port) || port < 1 || port > 65535)) {
+    console.error(`diffscope: invalid DIFFSCOPE_DEV_PORT: ${envPort}`);
+    process.exit(1);
+  }
   const { stop } = await startHttpServer({
     repoPath,
     staticDir: staticDirForMode(),

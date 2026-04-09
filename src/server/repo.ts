@@ -11,7 +11,7 @@ import type {
 
 const LOG_FORMAT = "%H%x00%h%x00%P%x00%an%x00%ae%x00%aI%x00%D%x00%s%x00%b%x1e";
 const BRANCH_FORMAT =
-  "%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:track)%00%(objectname)%00%(contents:subject)";
+  "%(refname)%00%(refname:short)%00%(HEAD)%00%(upstream:short)%00%(upstream:track)%00%(objectname)%00%(contents:subject)";
 
 export class GitError extends Error {
   constructor(
@@ -101,18 +101,20 @@ export function createRepo(cwd: string): Repo {
       for (const line of out.split("\n")) {
         if (!line) continue;
         const parts = line.split("\x00");
-        const name = parts[0] ?? "";
-        const head = parts[1] ?? " ";
-        const upstream = parts[2] || undefined;
-        const track = parts[3] ?? "";
-        const tipSha = parts[4] ?? "";
-        const tipSubject = parts[5] ?? "";
+        const fullRef = parts[0] ?? "";
+        const name = parts[1] ?? "";
+        const head = parts[2] ?? " ";
+        const upstream = parts[3] || undefined;
+        const track = parts[4] ?? "";
+        const tipSha = parts[5] ?? "";
+        const tipSubject = parts[6] ?? "";
         const ahead = /ahead (\d+)/.exec(track)?.[1];
         const behind = /behind (\d+)/.exec(track)?.[1];
         branches.push({
           name,
           isCurrent: head === "*",
-          isRemote: name.startsWith("origin/") || name.includes("/"),
+          // Authoritative: refs/remotes/* came from --refs=remotes (and only those).
+          isRemote: fullRef.startsWith("refs/remotes/"),
           upstream,
           ahead: ahead ? parseInt(ahead, 10) : 0,
           behind: behind ? parseInt(behind, 10) : 0,
