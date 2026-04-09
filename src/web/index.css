@@ -40,25 +40,25 @@ body,
   --border:         26 34 48;
   --border-strong:  42 52 65;
 
-  --fg:             226 232 240;
+  --fg:             241 245 249;
   --fg-muted:       100 116 139;
   --fg-subtle:      71 85 105;
 
-  --accent:         103 232 249;
+  --accent:         34 211 238;
   --accent-fg:      11 13 16;
 
-  --diff-add-fg:    134 239 172;
+  --diff-add-fg:    74 222 128;
   --diff-add-sign:  34 197 94;
-  --diff-del-fg:    252 165 165;
+  --diff-del-fg:    248 113 113;
   --diff-del-sign:  239 68 68;
 
-  --hunk-fg:        103 232 249;
+  --hunk-fg:        34 211 238;
 
   /* Category B — pre-computed translucent washes */
-  --accent-soft:    rgba(103, 232, 249, 0.12);
-  --diff-add-bg:    rgba(34, 197, 94, 0.08);
-  --diff-del-bg:    rgba(239, 68, 68, 0.09);
-  --hunk-bg:        rgba(103, 232, 249, 0.06);
+  --accent-soft:    rgba(34, 211, 238, 0.18);
+  --diff-add-bg:    rgba(34, 197, 94, 0.16);
+  --diff-del-bg:    rgba(239, 68, 68, 0.18);
+  --hunk-bg:        rgba(34, 211, 238, 0.12);
 
   --shadow-soft:    0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
 
@@ -84,20 +84,20 @@ body,
   --fg-muted:       120 113 108;
   --fg-subtle:      168 162 158;
 
-  --accent:         194 65 12;
+  --accent:         234 88 12;
   --accent-fg:      250 247 241;
 
-  --diff-add-fg:    21 128 61;
-  --diff-add-sign:  21 128 61;
-  --diff-del-fg:    185 28 28;
-  --diff-del-sign:  185 28 28;
+  --diff-add-fg:    22 163 74;
+  --diff-add-sign:  22 163 74;
+  --diff-del-fg:    220 38 38;
+  --diff-del-sign:  220 38 38;
 
-  --hunk-fg:        154 52 18;
+  --hunk-fg:        194 65 12;
 
-  --accent-soft:    rgba(194, 65, 12, 0.10);
-  --diff-add-bg:    #ecfdf5;
-  --diff-del-bg:    #fef2f2;
-  --hunk-bg:        rgba(194, 65, 12, 0.07);
+  --accent-soft:    rgba(234, 88, 12, 0.15);
+  --diff-add-bg:    #d1fae5;
+  --diff-del-bg:    #fee2e2;
+  --hunk-bg:        rgba(234, 88, 12, 0.12);
 
   --shadow-soft:    0 1px 2px rgba(28, 25, 23, 0.04), 0 8px 24px -12px rgba(28, 25, 23, 0.12);
 
@@ -123,20 +123,20 @@ body,
   --fg-muted:       87 83 78;
   --fg-subtle:      168 162 158;
 
-  --accent:         180 83 9;
+  --accent:         217 119 6;
   --accent-fg:      255 255 255;
 
-  --diff-add-fg:    113 63 18;
-  --diff-add-sign:  180 83 9;
-  --diff-del-fg:    168 162 158;
-  --diff-del-sign:  214 211 209;
+  --diff-add-fg:    146 64 14;
+  --diff-add-sign:  217 119 6;
+  --diff-del-fg:    120 113 108;
+  --diff-del-sign:  168 162 158;
 
-  --hunk-fg:        180 83 9;
+  --hunk-fg:        217 119 6;
 
-  --accent-soft:    rgba(180, 83, 9, 0.10);
-  --diff-add-bg:    #fefce8;
-  --diff-del-bg:    #fafaf9;
-  --hunk-bg:        rgba(180, 83, 9, 0.06);
+  --accent-soft:    rgba(217, 119, 6, 0.15);
+  --diff-add-bg:    #fef3c7;
+  --diff-del-bg:    #f5f5f4;
+  --hunk-bg:        rgba(217, 119, 6, 0.12);
 
   --shadow-soft:    0 1px 2px rgba(12, 10, 9, 0.03), 0 12px 32px -12px rgba(12, 10, 9, 0.10);
 
