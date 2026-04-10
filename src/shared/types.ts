@@ -98,25 +98,6 @@ export interface RepoInfo {
   currentBranch: string | null;
 }
 
-export type SseEvent =
-  | {
-      type: "snapshot";
-      status: FileStatus[];
-      repo: RepoInfo;
-      branches: Branch[];
-      stashes: Stash[];
-    }
-  | { type: "file-updated"; path: string; status: FileStatus; diff?: ParsedDiff }
-  | { type: "file-removed"; path: string }
-  | { type: "head-changed"; headSha: string; status: FileStatus[]; branches: Branch[] }
-  | { type: "refs-changed"; branches: Branch[] }
-  | { type: "stashes-changed"; stashes: Stash[] }
-  | { type: "watcher-down" }
-  | { type: "watcher-up" }
-  | { type: "repo-error"; reason: string }
-  | { type: "warning"; message: string }
-  | { type: "tree-updated"; entries: FsEntry[] };
-
 /**
  * A single entry in the working-tree listing served by /api/tree.
  * Directories are synthesized from file paths; see src/server/tree.ts.
@@ -138,6 +119,25 @@ export type FileContents =
   | { kind: "image"; mime: string; base64: string }
   | { kind: "binary"; size: number }
   | { kind: "tooLarge"; size: number };
+
+export type SseEvent =
+  | {
+      type: "snapshot";
+      status: FileStatus[];
+      repo: RepoInfo;
+      branches: Branch[];
+      stashes: Stash[];
+    }
+  | { type: "file-updated"; path: string; status: FileStatus; diff?: ParsedDiff }
+  | { type: "file-removed"; path: string }
+  | { type: "head-changed"; headSha: string; status: FileStatus[]; branches: Branch[] }
+  | { type: "refs-changed"; branches: Branch[] }
+  | { type: "stashes-changed"; stashes: Stash[] }
+  | { type: "watcher-down" }
+  | { type: "watcher-up" }
+  | { type: "repo-error"; reason: string }
+  | { type: "warning"; message: string }
+  | { type: "tree-updated"; entries: FsEntry[] };
 
 export interface BrowseEntry {
   name: string;
