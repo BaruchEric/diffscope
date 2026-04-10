@@ -4,7 +4,9 @@ import type {
   BrowseResult,
   Commit,
   CommitDetail,
+  FileContents,
   FileStatus,
+  FsEntry,
   ParsedDiff,
   Stash,
 } from "@shared/types";
@@ -76,4 +78,10 @@ export const api = {
       body: JSON.stringify({ path }),
     }),
   terminalScripts: () => fetchJson<ScriptsResponse>("/api/terminal/scripts"),
+  tree: (hideIgnored: boolean) =>
+    fetchJson<{ entries: FsEntry[] }>(
+      `/api/tree?hideIgnored=${hideIgnored ? "1" : "0"}`,
+    ),
+  file: (path: string) =>
+    fetchJson<FileContents>(`/api/file?path=${encodeURIComponent(path)}`),
 };
