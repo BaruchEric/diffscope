@@ -8,8 +8,8 @@
 // readFile is deliberately narrow: path-safety enforced, image / binary /
 // too-large detection server-side. Diffscope remains read-only — there is no
 // counterpart write API.
-import { readdir, lstat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { readdir, lstat, stat, readFile as fsReadFile, readlink } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
 import type { FsEntry, FileContents } from "../shared/types";
 import { runGit } from "./git";
 
@@ -106,10 +106,70 @@ async function walkDisk(repoRoot: string): Promise<FsEntry[]> {
   return out;
 }
 
-// Placeholder — implemented in Task 4-5.
+/**
+ * Path safety is enforced in three layers, because each catches a different
+ * class of attack:
+ *
+ *   1. Reject obvious bad inputs before touching the filesystem (absolute,
+ *      `..`, NUL).
+ *   2. Resolve the requested path, confirm it still starts with the resolved
+ *      repo root. Catches Windows-style traversals and cases where the
+ *      join/resolve produces something surprising.
+ *   3. lstat + follow: if the target is a symlink whose resolved target lives
+ *      outside the repo root, reject. Catches escape-via-link.
+ */
 export async function readFile(
-  _repoRoot: string,
-  _relPath: string,
+  repoRoot: string,
+  relPath: string,
 ): Promise<FileContents> {
-  throw new Error("readFile not implemented");
+  if (!isRelPathSafe(relPath)) throw new Error("invalid path");
+
+  const rootAbs = resolve(repoRoot);
+  const target = resolve(rootAbs, relPath);
+  if (target !== rootAbs && !target.startsWith(rootAbs + sep)) {
+    throw new Error("invalid path");
+  }
+
+  // If the target is a symlink, resolve and re-check containment.
+  let linkSt;
+  try {
+    linkSt = await lstat(target);
+  } catch {
+    throw new Error("not found");
+  }
+  if (linkSt.isSymbolicLink()) {
+    let resolvedLink: string;
+    try {
+      const linkTarget = await readlink(target);
+      resolvedLink = resolve(target, "..", linkTarget);
+    } catch {
+      throw new Error("invalid path");
+    }
+    if (resolvedLink !== rootAbs && !resolvedLink.startsWith(rootAbs + sep)) {
+      throw new Error("invalid path");
+    }
+  }
+
+  // Real file stat (follows symlink — safe now, because we verified the
+  // link target is inside the repo).
+  let st;
+  try {
+    st = await stat(target);
+  } catch {
+    throw new Error("not found");
+  }
+  if (!st.isFile()) throw new Error("not a file");
+
+  const content = await fsReadFile(target, "utf8");
+  return { kind: "text", content };
+}
+
+function isRelPathSafe(path: string): boolean {
+  if (!path) return false;
+  if (path.startsWith("/")) return false;
+  if (path.includes("\0")) return false;
+  for (const seg of path.split(/[\\/]/)) {
+    if (seg === "..") return false;
+  }
+  return true;
 }

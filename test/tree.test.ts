@@ -110,3 +110,44 @@ describe("listTree (hideIgnored=false)", () => {
     expect(a?.size).toBe(7); // 6 chars + newline
   });
 });
+
+describe("readFile path safety", () => {
+  let temp: TempRepo;
+  beforeEach(() => {
+    temp = createTempRepo();
+  });
+  afterEach(() => {
+    temp.cleanup();
+  });
+
+  test("reads a normal text file", async () => {
+    temp.write("a.ts", "hello\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+
+    const result = await readFile(temp.root, "a.ts");
+    expect(result.kind).toBe("text");
+    if (result.kind === "text") expect(result.content).toBe("hello\n");
+  });
+
+  test("rejects .. traversal", async () => {
+    await expect(readFile(temp.root, "../etc/passwd")).rejects.toThrow(/invalid path/i);
+  });
+
+  test("rejects absolute paths", async () => {
+    await expect(readFile(temp.root, "/etc/passwd")).rejects.toThrow(/invalid path/i);
+  });
+
+  test("rejects NUL in path", async () => {
+    await expect(readFile(temp.root, "a\0b")).rejects.toThrow(/invalid path/i);
+  });
+
+  test("rejects symlinks escaping the repo root", async () => {
+    temp.write("a.ts", "a\n");
+    symlinkSync("/etc/passwd", join(temp.root, "escape.txt"));
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+
+    await expect(readFile(temp.root, "escape.txt")).rejects.toThrow(/invalid path/i);
+  });
+});
