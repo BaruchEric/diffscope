@@ -1,4 +1,6 @@
 import { useStore } from "../store";
+import { useSettings } from "../settings";
+import { useTerminalStore } from "../terminal/terminal-store";
 
 export function StatusBar() {
   const repo = useStore((s) => s.repo);
@@ -6,6 +8,11 @@ export function StatusBar() {
   const branches = useStore((s) => s.branches);
   const watcherDown = useStore((s) => s.watcherDown);
   const paused = useStore((s) => s.paused);
+  const terminalCount = useTerminalStore((s) => s.terminals.length);
+  const drawerOpen = useSettings((s) => s.terminalDrawerOpen);
+  const toggleDrawer = () => {
+    useSettings.getState().set({ terminalDrawerOpen: !drawerOpen });
+  };
 
   const current = branches.find((b) => b.isCurrent);
   const staged = status.filter((f) => !f.isUntracked && f.staged).length;
@@ -45,6 +52,19 @@ export function StatusBar() {
         <span className="truncate font-mono text-fg-subtle">
           {repo?.headSha?.slice(0, 7)}
         </span>
+        {(terminalCount > 0 || drawerOpen) && (
+          <button
+            onClick={toggleDrawer}
+            title={`Terminal (${terminalCount} open)`}
+            aria-label="Toggle terminal drawer"
+            className={`flex items-center gap-1 rounded px-1 ${
+              drawerOpen ? "text-accent" : "text-fg-muted hover:text-fg"
+            }`}
+          >
+            <span>⌨</span>
+            <span className="tabular-nums">{terminalCount}</span>
+          </button>
+        )}
         <button
           onClick={() => useStore.getState().openSettings()}
           title="Settings (,)"

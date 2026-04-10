@@ -28,6 +28,8 @@ const SHORTCUT_HELP: ShortcutRow[] = [
   { keys: "/", description: "Filter file list" },
   { keys: "p", description: "Pause / resume live updates" },
   { keys: "⌘K / ⌃K", description: "Command palette" },
+  { keys: "⌘` / ⌃`", description: "Toggle terminal drawer" },
+  { keys: "⌘⇧` / ⌃⇧`", description: "Open terminal drawer (new shell)" },
   { keys: ",", description: "Settings" },
   { keys: "?", description: "Show this help" },
   { keys: "Esc", description: "Clear / close (priority: settings → palette → filter → focus)" },
@@ -74,6 +76,21 @@ export function Shortcuts() {
         if (s.focusedPath) {
           useStore.setState({ focusedPath: null, focusedDiff: null });
           return;
+        }
+        return;
+      }
+
+      // Ctrl/Cmd+` toggles the terminal drawer. Must run before the
+      // inInput gate so it works from any focus context (including an
+      // active xterm instance). Use e.code so the binding is independent
+      // of keyboard layout — e.key is "`" on US but "ò" on IT, etc.
+      if ((e.metaKey || e.ctrlKey) && e.code === "Backquote") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          useSettings.getState().set({ terminalDrawerOpen: true });
+        } else {
+          const cur = useSettings.getState().terminalDrawerOpen;
+          useSettings.getState().set({ terminalDrawerOpen: !cur });
         }
         return;
       }

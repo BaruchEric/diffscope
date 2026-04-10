@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useStore, type Tab } from "../store";
 import { useSettings } from "../settings";
 import { StatusBar } from "./status-bar";
+import { TerminalDrawerSlot } from "../terminal/terminal-drawer-slot";
 
 const TABS: { key: Tab; label: string; shortLabel: string }[] = [
   { key: "working-tree", label: "Working Tree", shortLabel: "Working" },
@@ -100,7 +101,10 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
         </div>
       </header>
-      <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+        <TerminalDrawerSlot />
+      </div>
       <StatusBar />
     </div>
   );

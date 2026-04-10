@@ -41,8 +41,24 @@ If you point it at a directory that's not inside a git repo, the browser opens t
 - **Branches** — local + remote branches with current branch indicator and tip preview
 - **Stashes** — list of stashes with full diff view
 - **Diff view** — Shiki syntax highlighting, unified or split mode, large-file collapsing, image side-by-side, binary file summary
+- **Integrated terminal** — VSCode-style bottom drawer with multiple tabs, backed by a real PTY. Run any shell command, `vim`, `htop`, dev servers, etc. Predefined scripts dropdown pulls from `package.json` scripts, built-ins, and an optional `.diffscope/scripts.json`. Toggle with `` Ctrl/Cmd+` ``. Terminals survive browser reloads.
 - **Live updates** — reacts to filesystem edits, `git add` / `git commit` / `git checkout` / `git stash`, and `.gitignore` changes
-- **Keyboard shortcuts** — `j/k` between files, `Tab` between tabs, `u` toggle unified/split, `/` filter, `p` pause, `?` help
+- **Keyboard shortcuts** — `j/k` between files, `Tab` between tabs, `u` toggle unified/split, `/` filter, `p` pause, `` Ctrl/Cmd+` `` toggle terminal, `?` help
+
+## Custom terminal scripts
+
+Create `.diffscope/scripts.json` in your repo to add custom entries to the terminal's `+` dropdown:
+
+```json
+{
+  "scripts": [
+    { "name": "dev + watcher", "command": "bun run dev & bun run watch" },
+    { "name": "lint staged", "command": "bunx lint-staged" }
+  ]
+}
+```
+
+User scripts override `package.json` scripts and built-ins if names collide.
 
 ## Development
 
@@ -66,6 +82,7 @@ bun test
 
 ## Scope
 
-- Read-only. No staging, committing, or destructive actions.
+- **Viewer is read-only.** The diff / history / branches / stashes UI never stages, commits, or performs destructive actions.
+- **The integrated terminal is a real shell.** Anything you can run in your terminal you can run in diffscope's terminal drawer, including destructive commands. This is an explicit opt-in: on first use, the drawer shows a one-time notice. If you want diffscope to stay purely observational, don't open the terminal.
 - Works on any local git repo.
 - Live updates via filesystem watcher — file edits, staging, commits, branch checkouts, stashes, `.gitignore` changes.
