@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { symlinkSync } from "node:fs";
+import { join } from "node:path";
 import { createTempRepo, type TempRepo } from "./helpers/temp-repo";
 import { listTree, readFile } from "../src/server/tree";
 
@@ -51,5 +53,60 @@ describe("listTree (hideIgnored=true)", () => {
 
     const entries = await listTree(temp.root, { hideIgnored: true });
     expect(entries.some((e) => e.path === ".git" || e.path.startsWith(".git/"))).toBe(false);
+  });
+});
+
+describe("listTree (hideIgnored=false)", () => {
+  let temp: TempRepo;
+  beforeEach(() => {
+    temp = createTempRepo();
+  });
+  afterEach(() => {
+    temp.cleanup();
+  });
+
+  test("includes gitignored files", async () => {
+    temp.write(".gitignore", "secret.txt\n");
+    temp.write("a.ts", "a\n");
+    temp.write("secret.txt", "shh\n");
+    temp.git("add", "a.ts", ".gitignore");
+    temp.git("commit", "-m", "init");
+
+    const entries = await listTree(temp.root, { hideIgnored: false });
+    const paths = entries.map((e) => e.path).sort();
+
+    expect(paths).toContain("a.ts");
+    expect(paths).toContain("secret.txt");
+  });
+
+  test("skips .git directory", async () => {
+    temp.write("a.ts", "a\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+
+    const entries = await listTree(temp.root, { hideIgnored: false });
+    expect(entries.some((e) => e.path === ".git" || e.path.startsWith(".git/"))).toBe(false);
+  });
+
+  test("treats symlinks as leaf entries without following", async () => {
+    temp.write("real.txt", "real\n");
+    symlinkSync("real.txt", join(temp.root, "link.txt"));
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+
+    const entries = await listTree(temp.root, { hideIgnored: false });
+    const link = entries.find((e) => e.path === "link.txt");
+    expect(link).toBeDefined();
+    expect(link!.isDir).toBe(false);
+  });
+
+  test("populates size for regular files", async () => {
+    temp.write("a.ts", "abcdef\n");
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+
+    const entries = await listTree(temp.root, { hideIgnored: false });
+    const a = entries.find((e) => e.path === "a.ts");
+    expect(a?.size).toBe(7); // 6 chars + newline
   });
 });
