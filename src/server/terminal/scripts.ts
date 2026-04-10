@@ -35,14 +35,23 @@ async function readJsonWithError<T>(
   }
 }
 
-function fromPackageJson(pkg: PackageJson | null): ScriptEntry[] {
+import { existsSync } from "node:fs";
+
+function detectRunner(repoRoot: string): string {
+  if (existsSync(join(repoRoot, "pnpm-lock.yaml"))) return "pnpm run";
+  if (existsSync(join(repoRoot, "yarn.lock"))) return "yarn run";
+  if (existsSync(join(repoRoot, "package-lock.json"))) return "npm run";
+  return "bun run";
+}
+
+function fromPackageJson(pkg: PackageJson | null, runner: string): ScriptEntry[] {
   if (!pkg || typeof pkg.scripts !== "object" || pkg.scripts === null) return [];
   const out: ScriptEntry[] = [];
   for (const name of Object.keys(pkg.scripts)) {
     if (!name) continue;
     out.push({
       name,
-      command: `bun run ${name}`,
+      command: `${runner} ${name}`,
       group: "package",
     });
   }
@@ -90,9 +99,10 @@ export async function resolveScripts(repoRoot: string): Promise<ResolveResult> {
     readJsonWithError<UserConfig>(join(repoRoot, ".diffscope/scripts.json")),
   ]);
 
+  const runner = detectRunner(repoRoot);
   const entries = mergeByName([
     BUILTINS,
-    fromPackageJson(pkgResult.value),
+    fromPackageJson(pkgResult.value, runner),
     fromUserConfig(userResult.value),
   ]);
 

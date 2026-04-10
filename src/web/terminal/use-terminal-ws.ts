@@ -108,7 +108,11 @@ export function sendFrame(frame: TerminalClientFrame): void {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(frame));
   } else {
-    void open().then(() => socket?.send(JSON.stringify(frame)));
+    void open().then(() => {
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(frame));
+      }
+    });
   }
 }
 
@@ -125,6 +129,7 @@ export function subscribe(id: string, handler: PerIdHandler): () => void {
     if (!current) return;
     current.delete(handler);
     if (current.size === 0) handlersById.delete(id);
+    if (handlersById.size === 0) firstOpen = true;
   };
 }
 

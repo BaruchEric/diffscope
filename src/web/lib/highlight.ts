@@ -1,6 +1,7 @@
 import { createHighlighterCore, type HighlighterCore } from "shiki/core";
 import { createOnigurumaEngine } from "shiki/engine/oniguruma";
 import { CONCRETE_THEMES, resolveThemeId, useSettings } from "../settings";
+import { getPrefersDark } from "./use-prefers-dark";
 
 // Use Shiki's granular API so the bundler only ships the languages we list,
 // not every language Shiki ships out of the box. The high-level
@@ -52,35 +53,32 @@ export function getHighlighter(): Promise<HighlighterCore> {
  */
 export function activeShikiTheme(): string {
   const id = useSettings.getState().theme;
-  const prefersDark =
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const resolved = resolveThemeId(id, prefersDark);
+  const resolved = resolveThemeId(id, getPrefersDark());
   return CONCRETE_THEMES[resolved].shikiTheme;
 }
+
+const LANG_BY_EXT: Record<string, string> = {
+  ts: "typescript",
+  tsx: "tsx",
+  js: "javascript",
+  jsx: "jsx",
+  mjs: "javascript",
+  cjs: "javascript",
+  json: "json",
+  css: "css",
+  html: "html",
+  md: "markdown",
+  markdown: "markdown",
+  sh: "shellscript",
+  bash: "shellscript",
+  zsh: "shellscript",
+  py: "python",
+  rs: "rust",
+  go: "go",
+};
 
 export function langFromPath(path: string): string {
   const dot = path.lastIndexOf(".");
   const ext = dot >= 0 ? path.slice(dot + 1).toLowerCase() : "";
-  const map: Record<string, string> = {
-    ts: "typescript",
-    tsx: "tsx",
-    js: "javascript",
-    jsx: "jsx",
-    mjs: "javascript",
-    cjs: "javascript",
-    json: "json",
-    css: "css",
-    html: "html",
-    md: "markdown",
-    markdown: "markdown",
-    sh: "shellscript",
-    bash: "shellscript",
-    zsh: "shellscript",
-    py: "python",
-    rs: "rust",
-    go: "go",
-  };
-  return map[ext] ?? "plaintext";
+  return LANG_BY_EXT[ext] ?? "plaintext";
 }

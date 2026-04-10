@@ -3,8 +3,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
-const RECENTS_DIR = join(homedir(), ".diffscope");
+const RECENTS_DIR = join(homedir(), ".config", "diffscope");
 const RECENTS_FILE = join(RECENTS_DIR, "recents.json");
+// Legacy location — checked as a fallback on first load so existing installs
+// don't lose their recents list.
+const LEGACY_RECENTS_FILE = join(homedir(), ".diffscope", "recents.json");
 const MAX_RECENTS = 20;
 
 export interface Recent {
@@ -18,10 +21,10 @@ export interface Recent {
 // once.
 let cache: Recent[] | null = null;
 
-function readFromDisk(): Recent[] {
-  if (!existsSync(RECENTS_FILE)) return [];
+function readJsonFile(path: string): Recent[] {
+  if (!existsSync(path)) return [];
   try {
-    const raw = readFileSync(RECENTS_FILE, "utf8");
+    const raw = readFileSync(path, "utf8");
     const data = JSON.parse(raw);
     if (!Array.isArray(data)) return [];
     return data.filter(
@@ -30,6 +33,12 @@ function readFromDisk(): Recent[] {
   } catch {
     return [];
   }
+}
+
+function readFromDisk(): Recent[] {
+  const current = readJsonFile(RECENTS_FILE);
+  if (current.length > 0) return current;
+  return readJsonFile(LEGACY_RECENTS_FILE);
 }
 
 export function loadRecents(): Recent[] {

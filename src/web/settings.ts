@@ -84,13 +84,7 @@ export const THEME_CARDS: ThemeCard[] = [
   { id: "neon", label: CONCRETE_THEMES.neon.label, description: CONCRETE_THEMES.neon.description },
 ];
 
-const VALID_THEME_IDS = new Set<ThemeId>([
-  "auto",
-  "midnight",
-  "paper",
-  "aperture",
-  "neon",
-]);
+const VALID_THEME_IDS = new Set<ThemeId>(["auto", ...Object.keys(CONCRETE_THEMES) as ConcreteThemeId[]]);
 
 /**
  * Migrate legacy theme values from earlier versions to the new ThemeId set.
@@ -181,6 +175,18 @@ function readStoredSettings(): Partial<Settings> {
   }
 }
 
+async function readServerSettings(): Promise<Partial<Settings>> {
+  try {
+    const res = await fetch("/api/settings");
+    if (!res.ok) return {};
+    const parsed = await res.json();
+    if (parsed && typeof parsed === "object") return parsed as Partial<Settings>;
+    return {};
+  } catch {
+    return {};
+  }
+}
+
 function migrateLegacyKeys(): void {
   try {
     localStorage.removeItem("diffscope:tab");
@@ -196,6 +202,12 @@ function writeThrough(state: Settings): void {
   } catch {
     // quota / disabled storage — drop silently
   }
+  // Fire-and-forget save to server for cross-session persistence.
+  fetch("/api/settings", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(state),
+  }).catch(() => {});
 }
 
 export const useSettings = create<SettingsStore>((set, get) => ({
@@ -215,6 +227,24 @@ export const useSettings = create<SettingsStore>((set, get) => ({
     // Write the migrated value back so the next load is a no-op fast path.
     writeThrough(merged);
     set({ ...merged, loaded: true });
+
+    // Async: merge in server-side settings (for when localStorage is empty
+    // due to a port change but the server file has saved prefs).
+    readServerSettings().then((server) => {
+      if (!server || Object.keys(server).length === 0) return;
+      const current = pickSettings(get());
+      const local = readStoredSettings();
+      // Only apply server values for keys that the user hasn't set locally
+      // (i.e. localStorage was empty and we're on defaults).
+      if (Object.keys(local).length > 0) return;
+      const fromServer: Settings = {
+        ...current,
+        ...server,
+        theme: migrateLegacyTheme((server as { theme?: unknown }).theme ?? current.theme),
+      };
+      writeThrough(fromServer);
+      set(fromServer);
+    });
   },
 
   set(partial) {

@@ -36,22 +36,17 @@ export function FileTree({
     [files],
   );
 
-  const visible = useMemo(() => {
-    const isExpanded = (dir: string): boolean => {
-      const forced = override.get(dir);
-      if (forced !== undefined) return forced;
-      return defaults.has(dir);
-    };
-    return flattenVisible(tree, isExpanded);
-  }, [tree, override, defaults]);
-
-  // Inline helper for the header rows — reads the latest override + defaults
-  // without going through useMemo.
   const isExpanded = (dir: string): boolean => {
     const forced = override.get(dir);
     if (forced !== undefined) return forced;
     return defaults.has(dir);
   };
+
+  const visible = useMemo(
+    () => flattenVisible(tree, isExpanded),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isExpanded reads override + defaults
+    [tree, override, defaults],
+  );
 
   const toggle = (dirPath: string) => {
     setOverride((prev) => {

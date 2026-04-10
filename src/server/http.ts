@@ -1,6 +1,6 @@
 // src/server/http.ts
 import { serve, type Server } from "bun";
-import { readdirSync, statSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, statSync, existsSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { createRepo, findRepoRoot, GitError, type Repo } from "./repo";
@@ -17,40 +17,38 @@ import type { TerminalSocketData } from "./terminal/ws";
 import {
   listTree,
   readFile as readTreeFile,
+  isRelPathSafe as isRepoRelPathSafe,
   InvalidPathError,
   NotFoundError,
 } from "./tree";
+import { mimeForPath } from "../shared/image";
 
-const MIME_BY_EXT: Record<string, string> = {
-  png: "image/png",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  gif: "image/gif",
-  webp: "image/webp",
-  svg: "image/svg+xml",
-  bmp: "image/bmp",
-  ico: "image/x-icon",
-};
+// ---------------------------------------------------------------------------
+// Machine-global settings persistence (~/.config/diffscope/settings.json)
+// ---------------------------------------------------------------------------
+const SETTINGS_DIR = join(homedir(), ".config", "diffscope");
+const SETTINGS_PATH = join(SETTINGS_DIR, "settings.json");
 
-function mimeForPath(path: string): string {
-  const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
-  return MIME_BY_EXT[ext] ?? "application/octet-stream";
+function readSettingsFile(): Record<string, unknown> {
+  try {
+    const raw = readFileSync(SETTINGS_PATH, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // missing or corrupt — return empty
+  }
+  return {};
 }
 
-/**
- * Reject absolute paths and any `..` segments. Repo endpoints that accept a
- * `?path=` query parameter must run their input through this before touching
- * the filesystem, or git could be bypassed via `/api/blob?ref=WORKDIR`.
- */
-function isRepoRelPathSafe(path: string): boolean {
-  if (!path) return false;
-  if (path.startsWith("/")) return false;
-  if (path.includes("\0")) return false;
-  // Split on both separators to catch Windows-style traversals too.
-  for (const seg of path.split(/[\\/]/)) {
-    if (seg === "..") return false;
+function writeSettingsFile(data: Record<string, unknown>): void {
+  try {
+    mkdirSync(SETTINGS_DIR, { recursive: true });
+    writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2));
+  } catch {
+    // read-only fs — drop silently
   }
-  return true;
 }
 
 function parseIntParam(raw: string | null, fallback: number, min: number, max: number): number {
@@ -182,6 +180,20 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
       return withRepo((r) => r.getStashes());
     }
 
+    // Settings: machine-global persistence
+    if (pathname === "/api/settings" && req.method === "GET") {
+      return json(readSettingsFile());
+    }
+
+    if (pathname === "/api/settings" && req.method === "PUT") {
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return json({ error: "expected JSON object" }, 400);
+      }
+      writeSettingsFile(body as Record<string, unknown>);
+      return json({ ok: true });
+    }
+
     // Terminal: scripts list
     if (pathname === "/api/terminal/scripts") {
       if (!terminalModule) return json({ error: "no repo loaded" }, 400);
@@ -195,40 +207,41 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
         start(controller) {
           const encoder = new TextEncoder();
           let closed = false;
+          let keepaliveTimer: ReturnType<typeof setInterval> | undefined;
+          let unsubscribeFn: (() => void) | undefined;
+          const cleanup = () => {
+            if (closed) return;
+            closed = true;
+            if (keepaliveTimer) clearInterval(keepaliveTimer);
+            unsubscribeFn?.();
+            try {
+              controller.close();
+            } catch {
+              // already closed
+            }
+          };
           const send = (event: unknown) => {
             if (closed) return;
             try {
               const data = `data: ${JSON.stringify(event)}\n\n`;
               controller.enqueue(encoder.encode(data));
             } catch {
-              // Controller closed (client disconnected) — unsubscribe so the
-              // emit loop in events.ts doesn't crash on this subscriber.
-              closed = true;
-              unsubscribe();
+              cleanup();
             }
           };
           const { snapshot, unsubscribe } = hub!.subscribe((event) => send(event));
+          unsubscribeFn = unsubscribe;
           send(snapshot);
           // Keepalive ping every 25s to prevent proxy timeouts
-          const keepalive = setInterval(() => {
+          keepaliveTimer = setInterval(() => {
             if (closed) return;
             try {
               controller.enqueue(encoder.encode(`: keepalive\n\n`));
             } catch {
-              closed = true;
-              clearInterval(keepalive);
+              cleanup();
             }
           }, 25000);
-          req.signal.addEventListener("abort", () => {
-            closed = true;
-            clearInterval(keepalive);
-            unsubscribe();
-            try {
-              controller.close();
-            } catch {
-              // already closed
-            }
-          });
+          req.signal.addEventListener("abort", cleanup);
         },
       });
       return new Response(stream, {

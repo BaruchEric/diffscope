@@ -111,11 +111,12 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 function shortenPath(p: string): string {
-  const home = "/Users/";
-  if (p.startsWith(home)) {
-    const rest = p.slice(home.length);
-    const first = rest.indexOf("/");
-    if (first >= 0) return `~${rest.slice(first)}`;
+  for (const prefix of ["/Users/", "/home/"]) {
+    if (p.startsWith(prefix)) {
+      const rest = p.slice(prefix.length);
+      const first = rest.indexOf("/");
+      if (first >= 0) return `~${rest.slice(first)}`;
+    }
   }
   return p;
 }

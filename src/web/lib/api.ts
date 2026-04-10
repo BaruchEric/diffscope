@@ -28,9 +28,10 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
   // If the caller passed their own signal, chain aborts.
   const callerSignal = init?.signal;
+  const onAbort = callerSignal ? () => controller.abort() : undefined;
   if (callerSignal) {
     if (callerSignal.aborted) controller.abort();
-    else callerSignal.addEventListener("abort", () => controller.abort());
+    else callerSignal.addEventListener("abort", onAbort!);
   }
   try {
     const res = await fetch(url, { ...init, signal: controller.signal });
@@ -45,6 +46,9 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     return (await res.json()) as T;
   } finally {
     clearTimeout(timeout);
+    if (callerSignal && onAbort) {
+      callerSignal.removeEventListener("abort", onAbort);
+    }
   }
 }
 

@@ -7,6 +7,7 @@ export function relativeTime(iso: string, style: RelativeStyle = "long"): string
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
   const diffSec = Math.round((Date.now() - then) / 1000);
+  if (diffSec < 0) return style === "short" ? "now" : "just now";
   if (style === "short") {
     if (diffSec < 60) return "now";
     const mins = Math.floor(diffSec / 60);

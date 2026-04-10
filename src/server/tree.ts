@@ -11,6 +11,7 @@
 import { readdir, lstat, stat, readFile as fsReadFile, realpath } from "node:fs/promises";
 import { join, resolve, sep, extname } from "node:path";
 import type { FsEntry, FileContents } from "../shared/types";
+import { IMAGE_MIME_BY_EXT } from "../shared/image";
 import { runGit } from "./git";
 
 /**
@@ -44,16 +45,7 @@ const LARGE_FILE_LIMIT = 2 * 1024 * 1024;
  *  same slice git uses for its own binary detection. */
 const BINARY_PROBE_BYTES = 8192;
 
-const IMAGE_MIME_BY_EXT: Record<string, string> = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".svg": "image/svg+xml", // Treated as image (renders inline); edit as XML in external editor.
-  ".bmp": "image/bmp",
-  ".ico": "image/x-icon",
-};
+// IMAGE_MIME_BY_EXT imported from shared/image.ts
 
 /**
  * Enumerate the working tree.
@@ -227,7 +219,7 @@ export async function readFile(
   return { kind: "text", content: bytes.toString("utf8") };
 }
 
-function isRelPathSafe(path: string): boolean {
+export function isRelPathSafe(path: string): boolean {
   if (!path) return false;
   if (path.startsWith("/")) return false;
   if (path.includes("\0")) return false;

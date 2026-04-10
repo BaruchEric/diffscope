@@ -29,3 +29,6 @@ function getServerSnapshot(): boolean {
 export function usePrefersDark(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
+
+/** Non-hook accessor for use outside React components. */
+export const getPrefersDark = getSnapshot;

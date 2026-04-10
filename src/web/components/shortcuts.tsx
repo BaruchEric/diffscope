@@ -252,9 +252,7 @@ export function Shortcuts() {
 
 function navigateSibling(delta: 1 | -1): void {
   const s = useStore.getState();
-  const mode = useSettings.getState().fileListMode;
-  const tab = useSettings.getState().lastUsedTab;
-  const wtMode = useSettings.getState().workingTreeMode;
+  const { fileListMode: mode, lastUsedTab: tab, workingTreeMode: wtMode } = useSettings.getState();
   if (tab === "working-tree") {
     if (wtMode === "explore") {
       const entries = s.exploreEntries;

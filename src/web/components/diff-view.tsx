@@ -527,6 +527,7 @@ function FileViewer({ file }: { file: { path: string; contents: FileContents } }
 
 function FileViewerText({ path, content }: { path: string; content: string }) {
   const [html, setHtml] = useState<string | null>(null);
+  const themeSetting = useSettings((s) => s.theme);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -543,7 +544,7 @@ function FileViewerText({ path, content }: { path: string; content: string }) {
     return () => {
       cancelled = true;
     };
-  }, [path, content]);
+  }, [path, content, themeSetting]);
 
   return (
     <div className="flex h-full flex-col overflow-auto">

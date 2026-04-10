@@ -18,6 +18,8 @@ function buildTreeUncached<T extends { path: string }>(items: T[]): TreeNode<T> 
     isDir: true,
     children: [],
   };
+  const childMaps = new Map<TreeNode<T>, Map<string, TreeNode<T>>>();
+  childMaps.set(root, new Map());
   for (const item of items) {
     const parts = item.path.split("/");
     let cursor = root;
@@ -25,7 +27,8 @@ function buildTreeUncached<T extends { path: string }>(items: T[]): TreeNode<T> 
       const part = parts[i]!;
       const isLast = i === parts.length - 1;
       const childPath = cursor.fullPath ? `${cursor.fullPath}/${part}` : part;
-      let child = cursor.children.find((c) => c.name === part);
+      const childMap = childMaps.get(cursor)!;
+      let child = childMap.get(part);
       if (!child) {
         child = {
           name: part,
@@ -34,6 +37,8 @@ function buildTreeUncached<T extends { path: string }>(items: T[]): TreeNode<T> 
           children: [],
         };
         cursor.children.push(child);
+        childMap.set(part, child);
+        childMaps.set(child, new Map());
       } else if (!isLast) {
         // Upgrade to directory if this segment is used as a parent of
         // deeper paths. Handles the case where listTree emits a bare

@@ -5,8 +5,17 @@ import { spawn } from "node:child_process";
 import { startHttpServer } from "./http";
 import { findRepoRoot } from "./repo";
 
+const DEFAULT_PORT = 4111;
+
 async function pickPort(): Promise<number> {
-  // Bun.serve with port: 0 → random free port; probe via a short-lived server
+  // Try the default port first so localStorage settings persist across runs.
+  try {
+    const probe = Bun.serve({ port: DEFAULT_PORT, fetch: () => new Response("ok") });
+    probe.stop(true);
+    return DEFAULT_PORT;
+  } catch {
+    // Port busy — fall back to a random free port.
+  }
   const probe = Bun.serve({ port: 0, fetch: () => new Response("ok") });
   const port = probe.port;
   probe.stop(true);
@@ -17,7 +26,11 @@ async function pickPort(): Promise<number> {
 }
 
 function openBrowser(url: string): void {
-  spawn("open", [url], { detached: true, stdio: "ignore" }).unref();
+  const platform = process.platform;
+  const cmd =
+    platform === "darwin" ? "open" : platform === "win32" ? "cmd" : "xdg-open";
+  const args = platform === "win32" ? ["/c", "start", url] : [url];
+  spawn(cmd, args, { detached: true, stdio: "ignore" }).unref();
 }
 
 function staticDirForMode(): string {
@@ -32,7 +45,7 @@ Usage:
   diffscope -v, --version show version
 
 Environment:
-  DIFFSCOPE_DEV_PORT      pin a fixed backend port (otherwise random)
+  DIFFSCOPE_DEV_PORT      pin a fixed backend port (default: ${DEFAULT_PORT})
 
 Once running, open the URL diffscope prints in your browser. If [path] is
 not inside a git repo, diffscope opens its picker UI so you can navigate
@@ -95,11 +108,4 @@ export async function main(argv: readonly string[]): Promise<void> {
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
-}
-
-if (import.meta.main) {
-  main(process.argv.slice(2)).catch((err) => {
-    console.error("diffscope:", err);
-    process.exit(1);
-  });
 }

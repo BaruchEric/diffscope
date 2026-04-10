@@ -3,40 +3,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { buildActions, type PaletteAction } from "../lib/actions";
 import { fuzzyFilter } from "../lib/fuzzy";
-import { useSettings, type ThemeId } from "../settings";
+import { useSettings, THEME_CARDS } from "../settings";
 import { Modal } from "./modal";
 
 const THEME_COMMANDS: PaletteAction[] = [
-  {
-    id: "theme.midnight",
-    label: "Theme: Midnight",
-    run: () => useSettings.getState().set({ theme: "midnight" }),
-  },
-  {
-    id: "theme.paper",
-    label: "Theme: Paper",
-    run: () => useSettings.getState().set({ theme: "paper" }),
-  },
-  {
-    id: "theme.aperture",
-    label: "Theme: Aperture",
-    run: () => useSettings.getState().set({ theme: "aperture" }),
-  },
-  {
-    id: "theme.neon",
-    label: "Theme: Neon",
-    run: () => useSettings.getState().set({ theme: "neon" }),
-  },
-  {
-    id: "theme.auto",
-    label: "Theme: Auto (follow OS)",
-    run: () => useSettings.getState().set({ theme: "auto" }),
-  },
+  ...THEME_CARDS.map((t) => ({
+    id: `theme.${t.id}`,
+    label: t.id === "auto" ? "Theme: Auto (follow OS)" : `Theme: ${t.label}`,
+    run: () => useSettings.getState().set({ theme: t.id }),
+  })),
   {
     id: "theme.cycle",
     label: "Theme: Cycle",
     run: () => {
-      const order: ThemeId[] = ["auto", "midnight", "paper", "aperture", "neon"];
+      const order = THEME_CARDS.map((t) => t.id);
       const current = useSettings.getState().theme;
       const next = order[(order.indexOf(current) + 1) % order.length]!;
       useSettings.getState().set({ theme: next });

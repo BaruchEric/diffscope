@@ -4,8 +4,10 @@ import { useTerminalStore } from "../terminal/terminal-store";
 
 export function StatusBar() {
   const repo = useStore((s) => s.repo);
-  const status = useStore((s) => s.status);
-  const branches = useStore((s) => s.branches);
+  const staged = useStore((s) => s.status.filter((f) => !f.isUntracked && f.staged).length);
+  const unstaged = useStore((s) => s.status.filter((f) => !f.isUntracked && f.unstaged).length);
+  const untracked = useStore((s) => s.status.filter((f) => f.isUntracked).length);
+  const current = useStore((s) => s.branches.find((b) => b.isCurrent));
   const watcherDown = useStore((s) => s.watcherDown);
   const viewingFile = useStore((s) => s.viewingFile);
   const focusedDiff = useStore((s) => s.focusedDiff);
@@ -15,11 +17,6 @@ export function StatusBar() {
   const toggleDrawer = () => {
     useSettings.getState().set({ terminalDrawerOpen: !drawerOpen });
   };
-
-  const current = branches.find((b) => b.isCurrent);
-  const staged = status.filter((f) => !f.isUntracked && f.staged).length;
-  const unstaged = status.filter((f) => !f.isUntracked && f.unstaged).length;
-  const untracked = status.filter((f) => f.isUntracked).length;
 
   return (
     <footer className="flex h-6 items-center gap-3 border-t border-border bg-bg-elevated px-3 text-[11px] text-fg-muted">

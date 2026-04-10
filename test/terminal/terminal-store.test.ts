@@ -66,7 +66,8 @@ describe("terminal store", () => {
     store.getState().setActive("b");
     removeTerminal("b");
     expect(store.getState().terminals.map((t) => t.id)).toEqual(["a", "c"]);
-    expect(store.getState().activeId).toBe("a");
+    // Picks the nearest neighbor (next tab) rather than jumping to the first
+    expect(store.getState().activeId).toBe("c");
   });
 
   test("updateTerminal patches status and exitCode", () => {

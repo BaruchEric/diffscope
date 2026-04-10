@@ -1,14 +1,6 @@
 // src/server/parser.ts
 import type { Commit, DiffHunk, DiffLine, FileChangeType, FileStatus, ParsedDiff } from "../shared/types";
-
-const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".ico"]);
-
-function isImage(path: string): boolean {
-  const lower = path.toLowerCase();
-  const dot = lower.lastIndexOf(".");
-  if (dot < 0) return false;
-  return IMAGE_EXTS.has(lower.slice(dot));
-}
+import { isImagePath as isImage } from "../shared/image";
 
 function xyToChange(c: string): FileChangeType | null {
   switch (c) {

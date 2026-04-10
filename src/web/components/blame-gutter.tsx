@@ -4,21 +4,13 @@ import { useStore } from "../store";
 import { useSettings } from "../settings";
 import { relativeTime } from "../lib/relative-time";
 
-// Module-level cache: one BlameGutter renders per line, so a 2000-line file
-// calls this 2000 times per render. Memoizing by author name collapses those
-// into a handful of computations — author count per file is typically <20.
-const initialsCache = new Map<string, string>();
 function authorInitials(author: string): string {
-  const cached = initialsCache.get(author);
-  if (cached !== undefined) return cached;
-  const initials = author
+  return author
     .split(" ")
     .map((p) => p[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
-  initialsCache.set(author, initials);
-  return initials;
 }
 
 export function BlameGutter({

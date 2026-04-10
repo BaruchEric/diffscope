@@ -19,6 +19,7 @@ export function useCommitDetail(sha: string | null): {
       return;
     }
     let cancelled = false;
+    setDetail(null);
     setLoading(true);
     void api
       .commit(sha)

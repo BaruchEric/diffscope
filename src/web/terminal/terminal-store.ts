@@ -84,13 +84,16 @@ function clearStorage(storage: Storage | undefined): void {
 }
 
 function pickNewActive(
+  all: TerminalMeta[],
   remaining: TerminalMeta[],
   removedId: string,
   previousActiveId: string | null,
 ): string | null {
   if (previousActiveId !== removedId) return previousActiveId;
   if (remaining.length === 0) return null;
-  return remaining[0]?.id ?? null;
+  const removedIdx = all.findIndex((t) => t.id === removedId);
+  const neighborIdx = Math.min(removedIdx, remaining.length - 1);
+  return remaining[neighborIdx]?.id ?? remaining[0]?.id ?? null;
 }
 
 export interface CreateTerminalStoreOptions {
@@ -129,7 +132,7 @@ export function createTerminalStore(
       removeTerminal(id) {
         const before = get();
         const next = before.terminals.filter((t) => t.id !== id);
-        const nextActive = pickNewActive(next, id, before.activeId);
+        const nextActive = pickNewActive(before.terminals, next, id, before.activeId);
         set({ terminals: next, activeId: nextActive });
         persist();
       },
