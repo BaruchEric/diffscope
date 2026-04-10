@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
-import type { FileChangeType, FileStatus } from "@shared/types";
+import { useEffect, useMemo, useState } from "react";
+import type { FileChangeType, FileStatus, FsEntry } from "@shared/types";
 import { useStore } from "../store";
 import { useSettings } from "../settings";
 import { fuzzyFilter } from "../lib/fuzzy";
 import { FileTree } from "./file-tree";
+import { FileExplorer } from "./file-explorer";
 
 type GroupKind = "staged" | "unstaged" | "untracked";
 interface Group {
@@ -34,9 +35,21 @@ export function FileList() {
   const status = useStore((s) => s.status);
   const focusedPath = useStore((s) => s.focusedPath);
   const focusFile = useStore((s) => s.focusFile);
+  const exploreEntries = useStore((s) => s.exploreEntries);
+  const exploreFocusedPath = useStore((s) => s.exploreFocusedPath);
+  const focusExploreFile = useStore((s) => s.focusExploreFile);
+  const loadExploreEntries = useStore((s) => s.loadExploreEntries);
   const fileListMode = useSettings((s) => s.fileListMode);
+  const workingTreeMode = useSettings((s) => s.workingTreeMode);
+  const hideIgnored = useSettings((s) => s.hideIgnored);
   const setSettings = useSettings((s) => s.set);
   const [filter, setFilter] = useState("");
+
+  useEffect(() => {
+    if (workingTreeMode === "explore") {
+      void loadExploreEntries(hideIgnored);
+    }
+  }, [workingTreeMode, hideIgnored, loadExploreEntries]);
 
   // Filter the full flat list once, then group. Previously we ran
   // fuzzyFilter three times (one per group), which scored every file three
@@ -48,36 +61,97 @@ export function FileList() {
     return group(filtered);
   }, [status, filter]);
 
+  const filteredExploreEntries = useMemo<FsEntry[]>(() => {
+    if (!filter) return exploreEntries;
+    const files = exploreEntries.filter((e) => !e.isDir);
+    const matched = fuzzyFilter(files, filter, (f) => f.path);
+    const keep = new Set(matched.map((m) => m.path));
+    for (const m of matched) {
+      const parts = m.path.split("/");
+      for (let i = 1; i < parts.length; i++) keep.add(parts.slice(0, i).join("/"));
+    }
+    return exploreEntries.filter((e) => keep.has(e.path));
+  }, [exploreEntries, filter]);
+
   return (
     <div className="flex h-full flex-col border-r border-border">
       <div className="border-b border-border p-2">
         <div className="mb-2 flex items-center gap-1">
-          <button
-            onClick={() => setSettings({ fileListMode: "flat" })}
-            title="Flat list"
-            aria-pressed={fileListMode === "flat"}
-            className={
-              "rounded px-1 text-xs " +
-              (fileListMode === "flat"
-                ? "bg-surface-hover text-fg"
-                : "text-fg-muted hover:bg-surface-hover hover:text-fg")
-            }
-          >
-            ☰
-          </button>
-          <button
-            onClick={() => setSettings({ fileListMode: "tree" })}
-            title="Tree view"
-            aria-pressed={fileListMode === "tree"}
-            className={
-              "rounded px-1 text-xs " +
-              (fileListMode === "tree"
-                ? "bg-surface-hover text-fg"
-                : "text-fg-muted hover:bg-surface-hover hover:text-fg")
-            }
-          >
-            ▾
-          </button>
+          <div role="tablist" className="flex rounded bg-surface-hover p-0.5">
+            <button
+              role="tab"
+              aria-selected={workingTreeMode === "changes"}
+              onClick={() => setSettings({ workingTreeMode: "changes" })}
+              title="Changes"
+              className={
+                "rounded px-2 text-xs " +
+                (workingTreeMode === "changes"
+                  ? "bg-bg text-fg shadow-sm"
+                  : "text-fg-muted hover:text-fg")
+              }
+            >
+              Changes
+            </button>
+            <button
+              role="tab"
+              aria-selected={workingTreeMode === "explore"}
+              onClick={() => setSettings({ workingTreeMode: "explore" })}
+              title="Explore (full repo)"
+              className={
+                "rounded px-2 text-xs " +
+                (workingTreeMode === "explore"
+                  ? "bg-bg text-fg shadow-sm"
+                  : "text-fg-muted hover:text-fg")
+              }
+            >
+              Explore
+            </button>
+          </div>
+          {workingTreeMode === "changes" && (
+            <>
+              <button
+                onClick={() => setSettings({ fileListMode: "flat" })}
+                title="Flat list"
+                aria-pressed={fileListMode === "flat"}
+                className={
+                  "ml-2 rounded px-1 text-xs " +
+                  (fileListMode === "flat"
+                    ? "bg-surface-hover text-fg"
+                    : "text-fg-muted hover:bg-surface-hover hover:text-fg")
+                }
+              >
+                ☰
+              </button>
+              <button
+                onClick={() => setSettings({ fileListMode: "tree" })}
+                title="Tree view"
+                aria-pressed={fileListMode === "tree"}
+                className={
+                  "rounded px-1 text-xs " +
+                  (fileListMode === "tree"
+                    ? "bg-surface-hover text-fg"
+                    : "text-fg-muted hover:bg-surface-hover hover:text-fg")
+                }
+              >
+                ▾
+              </button>
+            </>
+          )}
+          {workingTreeMode === "explore" && (
+            <button
+              onClick={() => setSettings({ hideIgnored: !hideIgnored })}
+              title={hideIgnored ? "Show ignored files" : "Hide ignored files"}
+              aria-pressed={hideIgnored}
+              className={
+                "ml-2 rounded px-1 text-xs " +
+                (hideIgnored
+                  ? "bg-surface-hover text-fg"
+                  : "text-fg-muted hover:bg-surface-hover hover:text-fg")
+              }
+            >
+              {hideIgnored ? "◐" : "◑"}
+            </button>
+          )}
         </div>
         <input
           value={filter}
@@ -88,7 +162,13 @@ export function FileList() {
         />
       </div>
       <div className="flex-1 overflow-auto">
-        {fileListMode === "tree" ? (
+        {workingTreeMode === "explore" ? (
+          <FileExplorer
+            entries={filteredExploreEntries}
+            focusedPath={exploreFocusedPath}
+            onFileClick={(p) => void focusExploreFile(p)}
+          />
+        ) : fileListMode === "tree" ? (
           <FileTree
             files={status}
             focusedPath={focusedPath}
