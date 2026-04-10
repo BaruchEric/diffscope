@@ -86,7 +86,7 @@ export async function main(argv: readonly string[]): Promise<void> {
     console.log(`diffscope: no repo at ${arg ?? process.cwd()} — opening picker`);
   }
   console.log(`diffscope: ${url}`);
-  openBrowser(url);
+  if (!envPort) openBrowser(url);
 
   const shutdown = async () => {
     console.log("\ndiffscope: shutting down…");
