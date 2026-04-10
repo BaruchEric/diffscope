@@ -146,7 +146,11 @@ export function createEventHub(repo: Repo): EventHub {
       treeSnapshot = await listTree(repo.cwd, { hideIgnored: true });
       emit({ type: "tree-updated", entries: treeSnapshot });
     } catch (err) {
-      if (err instanceof GitError) emit({ type: "warning", message: err.stderr });
+      if (err instanceof GitError) {
+        emit({ type: "warning", message: err.stderr });
+      } else if (err instanceof Error) {
+        emit({ type: "warning", message: err.message });
+      }
     }
   };
 

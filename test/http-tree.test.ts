@@ -97,8 +97,29 @@ describe("SSE: tree-updated", () => {
 
     let saw = false;
     const timer = setTimeout(() => controller.abort(), 4000);
-    // Small delay so the watcher is fully subscribed before we mutate.
-    await new Promise((r) => setTimeout(r, 500));
+
+    // Wait for the initial `snapshot` event before mutating — receiving
+    // it guarantees the watcher is live (http.ts sends snapshot
+    // synchronously after subscribing).
+    let receivedSnapshot = false;
+    while (!receivedSnapshot) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const text = decoder.decode(value);
+      for (const line of text.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        try {
+          const event = JSON.parse(line.slice(5).trim());
+          if (event.type === "snapshot") {
+            receivedSnapshot = true;
+            break;
+          }
+        } catch {
+          // keepalive or partial frame — skip
+        }
+      }
+    }
+
     temp.write("b.ts", "b\n");
 
     try {
