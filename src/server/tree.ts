@@ -13,6 +13,28 @@ import { join, resolve, sep, extname } from "node:path";
 import type { FsEntry, FileContents } from "../shared/types";
 import { runGit } from "./git";
 
+/**
+ * Thrown when readFile input fails path safety (traversal, NUL, absolute,
+ * or symlink escaping the repo root). HTTP layer maps this to 400.
+ */
+export class InvalidPathError extends Error {
+  constructor(message = "invalid path") {
+    super(message);
+    this.name = "InvalidPathError";
+  }
+}
+
+/**
+ * Thrown when readFile cannot locate the requested path. HTTP layer maps
+ * this to 404.
+ */
+export class NotFoundError extends Error {
+  constructor(message = "not found") {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}
+
 /** 2 MB cap before we bail out with `tooLarge`. Matches the spirit of the
  *  existing DiffView large-hunk threshold — anything bigger is not useful
  *  to scroll in-browser and should open in the user's editor instead. */
@@ -142,12 +164,12 @@ export async function readFile(
   repoRoot: string,
   relPath: string,
 ): Promise<FileContents> {
-  if (!isRelPathSafe(relPath)) throw new Error("invalid path");
+  if (!isRelPathSafe(relPath)) throw new InvalidPathError();
 
   const rootAbs = resolve(repoRoot);
   const target = resolve(rootAbs, relPath);
   if (target !== rootAbs && !target.startsWith(rootAbs + sep)) {
-    throw new Error("invalid path");
+    throw new InvalidPathError();
   }
 
   // If the target is a symlink, resolve and re-check containment.
@@ -155,7 +177,7 @@ export async function readFile(
   try {
     linkSt = await lstat(target);
   } catch {
-    throw new Error("not found");
+    throw new NotFoundError();
   }
   if (linkSt.isSymbolicLink()) {
     // realpath fully resolves the symlink chain (multi-hop + relative), so
@@ -165,10 +187,10 @@ export async function readFile(
     try {
       resolvedLink = await realpath(target);
     } catch {
-      throw new Error("not found");
+      throw new NotFoundError();
     }
     if (resolvedLink !== rootAbs && !resolvedLink.startsWith(rootAbs + sep)) {
-      throw new Error("invalid path");
+      throw new InvalidPathError();
     }
   }
 
@@ -178,9 +200,9 @@ export async function readFile(
   try {
     st = await stat(target);
   } catch {
-    throw new Error("not found");
+    throw new NotFoundError();
   }
-  if (!st.isFile()) throw new Error("not a file");
+  if (!st.isFile()) throw new InvalidPathError("not a file");
 
   if (st.size > LARGE_FILE_LIMIT) {
     return { kind: "tooLarge", size: st.size };

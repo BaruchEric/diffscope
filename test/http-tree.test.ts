@@ -16,12 +16,12 @@ describe("HTTP: /api/tree + /api/file", () => {
     temp.git("add", "a.ts", ".gitignore");
     temp.git("commit", "-m", "init");
 
-    port = 41200 + Math.floor(Math.random() * 500);
     server = await startHttpServer({
       repoPath: temp.root,
       staticDir: "/tmp/does-not-exist",
-      port,
+      port: 0,
     });
+    port = server.server.port as number;
   });
   afterEach(async () => {
     await server.stop();

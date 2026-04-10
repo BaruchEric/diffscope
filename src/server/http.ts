@@ -14,7 +14,12 @@ import {
 } from "./blame";
 import { createTerminalModule, type TerminalModule } from "./terminal";
 import type { TerminalSocketData } from "./terminal/ws";
-import { listTree, readFile as readTreeFile } from "./tree";
+import {
+  listTree,
+  readFile as readTreeFile,
+  InvalidPathError,
+  NotFoundError,
+} from "./tree";
 
 const MIME_BY_EXT: Record<string, string> = {
   png: "image/png",
@@ -340,9 +345,12 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
         const contents = await readTreeFile(repo.cwd, path);
         return json(contents);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (/not found|ENOENT/i.test(msg)) return json({ error: msg }, 404);
-        if (/invalid path/i.test(msg)) return json({ error: msg }, 400);
+        if (err instanceof NotFoundError) {
+          return json({ error: err.message }, 404);
+        }
+        if (err instanceof InvalidPathError) {
+          return json({ error: err.message }, 400);
+        }
         return errorResponse(err);
       }
     }
