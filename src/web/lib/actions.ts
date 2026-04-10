@@ -103,5 +103,21 @@ export function buildActions(): PaletteAction[] {
         useSettings.getState().set({ terminalDrawerOpen: !cur });
       },
     },
+    {
+      id: "explorer.toggle-mode",
+      label: "Explorer: toggle Changes / Explore",
+      hint: "e",
+      run: () => {
+        const cur = useSettings.getState().workingTreeMode;
+        useSettings.getState().set({ workingTreeMode: cur === "explore" ? "changes" : "explore" });
+      },
+    },
+    {
+      id: "explorer.toggle-hide-ignored",
+      label: "Explorer: toggle hide ignored files",
+      run: () => {
+        useSettings.getState().set({ hideIgnored: !useSettings.getState().hideIgnored });
+      },
+    },
   ];
 }
