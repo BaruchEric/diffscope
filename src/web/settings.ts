@@ -131,6 +131,8 @@ export interface Settings {
   terminalDrawerOpen: boolean;
   terminalDrawerHeightPx: number;
   terminalNoticeAcknowledged: boolean;
+  workingTreeMode: "changes" | "explore";
+  hideIgnored: boolean;
 }
 
 const STORAGE_KEY = "diffscope:settings:v1";
@@ -148,6 +150,8 @@ const DEFAULTS: Settings = {
   terminalDrawerOpen: false,
   terminalDrawerHeightPx: 280,
   terminalNoticeAcknowledged: false,
+  workingTreeMode: "changes",
+  hideIgnored: true,
 };
 
 const SETTINGS_KEYS = Object.keys(DEFAULTS) as (keyof Settings)[];

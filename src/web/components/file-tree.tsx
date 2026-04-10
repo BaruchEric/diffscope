@@ -5,92 +5,13 @@
 // "derived-from-props state synced by effect" anti-pattern.
 import { useMemo, useState } from "react";
 import type { FileStatus } from "@shared/types";
-
-interface TreeNode {
-  name: string;
-  fullPath: string; // "" for root, "src" / "src/web" for dirs
-  isDir: boolean;
-  children: TreeNode[];
-  file?: FileStatus;
-}
-
-function buildTreeUncached(files: FileStatus[]): TreeNode {
-  const root: TreeNode = {
-    name: "",
-    fullPath: "",
-    isDir: true,
-    children: [],
-  };
-  for (const f of files) {
-    const parts = f.path.split("/");
-    let cursor = root;
-    for (let i = 0; i < parts.length; i++) {
-      const part = parts[i]!;
-      const isLast = i === parts.length - 1;
-      const childPath = cursor.fullPath ? `${cursor.fullPath}/${part}` : part;
-      let child = cursor.children.find((c) => c.name === part);
-      if (!child) {
-        child = {
-          name: part,
-          fullPath: childPath,
-          isDir: !isLast,
-          children: [],
-        };
-        cursor.children.push(child);
-      }
-      if (isLast) child.file = f;
-      cursor = child;
-    }
-  }
-  // Sort: directories first, alphabetical within each level.
-  const sort = (n: TreeNode): void => {
-    n.children.sort((a, b) => {
-      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
-    for (const c of n.children) sort(c);
-  };
-  sort(root);
-  return root;
-}
-
-// Single-entry cache by reference identity. `status` from the store keeps
-// the same array reference across renders when nothing has changed, so this
-// cache is warm in the common case (every j/k keypress, every render of the
-// file list). Avoids rebuilding the tree on unrelated state changes.
-const treeCache = new WeakMap<FileStatus[], TreeNode>();
-export function buildTree(files: FileStatus[]): TreeNode {
-  const cached = treeCache.get(files);
-  if (cached) return cached;
-  const tree = buildTreeUncached(files);
-  treeCache.set(files, tree);
-  return tree;
-}
-
-function collectAncestorDirs(files: FileStatus[]): Set<string> {
-  const out = new Set<string>();
-  for (const f of files) {
-    const parts = f.path.split("/");
-    for (let i = 1; i < parts.length; i++) {
-      out.add(parts.slice(0, i).join("/"));
-    }
-  }
-  return out;
-}
-
-function flattenVisible(
-  node: TreeNode,
-  isExpanded: (dir: string) => boolean,
-  depth: number,
-  out: { node: TreeNode; depth: number }[],
-): void {
-  for (const child of node.children) {
-    out.push({ node: child, depth });
-    if (child.isDir && isExpanded(child.fullPath)) {
-      flattenVisible(child, isExpanded, depth + 1, out);
-    }
-  }
-}
+import {
+  buildTreeFromPaths,
+  collectAllDirs,
+  collectAncestorDirs,
+  flattenVisible,
+  type TreeNode,
+} from "../lib/tree";
 
 export function FileTree({
   files,
@@ -101,7 +22,7 @@ export function FileTree({
   focusedPath: string | null;
   onFileClick: (path: string) => void;
 }) {
-  const tree = useMemo(() => buildTree(files), [files]);
+  const tree = useMemo(() => buildTreeFromPaths(files), [files]);
 
   // Track the user's manual expand/collapse deltas as a single map — the
   // value is the override (true = force-expanded, false = force-collapsed);
@@ -110,7 +31,10 @@ export function FileTree({
   // bookkeeping.
   const [override, setOverride] = useState<Map<string, boolean>>(() => new Map());
 
-  const defaults = useMemo(() => collectAncestorDirs(files), [files]);
+  const defaults = useMemo(
+    () => collectAncestorDirs(files.map((f) => f.path)),
+    [files],
+  );
 
   const visible = useMemo(() => {
     const isExpanded = (dir: string): boolean => {
@@ -118,9 +42,7 @@ export function FileTree({
       if (forced !== undefined) return forced;
       return defaults.has(dir);
     };
-    const out: { node: TreeNode; depth: number }[] = [];
-    flattenVisible(tree, isExpanded, 0, out);
-    return out;
+    return flattenVisible(tree, isExpanded);
   }, [tree, override, defaults]);
 
   // Inline helper for the header rows — reads the latest override + defaults
@@ -187,10 +109,10 @@ export function FileTree({
               </button>
             ) : (
               <button
-                onClick={() => node.file && onFileClick(node.file.path)}
+                onClick={() => node.data && onFileClick(node.data.path)}
                 className={
                   "flex w-full items-center gap-1 px-2 py-0.5 text-left border-l-2 " +
-                  (focusedPath === node.file?.path
+                  (focusedPath === node.data?.path
                     ? "bg-surface-hover text-fg border-accent"
                     : "text-fg-muted hover:bg-surface-hover hover:text-fg border-transparent")
                 }
@@ -206,20 +128,10 @@ export function FileTree({
   );
 }
 
-function collectAllDirs(node: TreeNode): string[] {
-  const out: string[] = [];
-  const walk = (n: TreeNode) => {
-    if (n.isDir && n.fullPath) out.push(n.fullPath);
-    for (const c of n.children) walk(c);
-  };
-  walk(node);
-  return out;
-}
-
-function countChanges(node: TreeNode): string {
+function countChanges(node: TreeNode<FileStatus>): string {
   let n = 0;
-  const walk = (x: TreeNode) => {
-    if (x.file) n++;
+  const walk = (x: TreeNode<FileStatus>) => {
+    if (x.data) n++;
     for (const c of x.children) walk(c);
   };
   walk(node);
@@ -236,14 +148,13 @@ export function visibleFilePathsForTree(
   files: FileStatus[],
   expanded: Set<string>,
 ): string[] {
-  const tree = buildTree(files);
-  const out: { node: TreeNode; depth: number }[] = [];
-  flattenVisible(tree, (dir) => expanded.has(dir), 0, out);
-  return out.filter((v) => !v.node.isDir).map((v) => v.node.file!.path);
+  const tree = buildTreeFromPaths(files);
+  const flat = flattenVisible(tree, (dir) => expanded.has(dir));
+  return flat.filter((v) => !v.node.isDir).map((v) => v.node.data!.path);
 }
 
 /** All directory paths in the tree — reused by shortcuts for j/k nav. */
 export function allDirPathsForTree(files: FileStatus[]): Set<string> {
-  const tree = buildTree(files);
+  const tree = buildTreeFromPaths(files);
   return new Set(collectAllDirs(tree));
 }

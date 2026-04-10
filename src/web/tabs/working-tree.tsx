@@ -6,6 +6,7 @@ import { useStore } from "../store";
 export function WorkingTreeTab() {
   const focusedDiff = useStore((s) => s.focusedDiff);
   const focusedPath = useStore((s) => s.focusedPath);
+  const viewingFile = useStore((s) => s.viewingFile);
   return (
     <PaneSplit
       axis="x"
@@ -15,6 +16,7 @@ export function WorkingTreeTab() {
           <DiffView
             diff={focusedDiff}
             loading={focusedPath !== null && focusedDiff === null}
+            fileViewMode={viewingFile ?? undefined}
           />
         </div>
       }

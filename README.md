@@ -37,13 +37,14 @@ If you point it at a directory that's not inside a git repo, the browser opens t
 ## Features
 
 - **Working Tree** — staged / unstaged / untracked groups, live-updated as you edit, stage, or commit
+- **File explorer** — "Explore" mode in the Working Tree sidebar shows the full repo tree, not just changed files. Click any file to view its contents (syntax-highlighted via Shiki) or its diff if it's changed. Toggle with `e` or the segmented control. "Hide ignored files" toggle is sticky across sessions.
 - **History** — commit list with click-to-view full commit diffs
 - **Branches** — local + remote branches with current branch indicator and tip preview
 - **Stashes** — list of stashes with full diff view
 - **Diff view** — Shiki syntax highlighting, unified or split mode, large-file collapsing, image side-by-side, binary file summary
 - **Integrated terminal** — VSCode-style bottom drawer with multiple tabs, backed by a real PTY. Run any shell command, `vim`, `htop`, dev servers, etc. Predefined scripts dropdown pulls from `package.json` scripts, built-ins, and an optional `.diffscope/scripts.json`. Toggle with `` Ctrl/Cmd+` ``. Terminals survive browser reloads.
 - **Live updates** — reacts to filesystem edits, `git add` / `git commit` / `git checkout` / `git stash`, and `.gitignore` changes
-- **Keyboard shortcuts** — `j/k` between files, `Tab` between tabs, `u` toggle unified/split, `/` filter, `p` pause, `` Ctrl/Cmd+` `` toggle terminal, `?` help
+- **Keyboard shortcuts** — `j/k` between files, `Tab` between tabs, `u` toggle unified/split, `t` flat/tree, `e` Changes/Explore, `/` filter, `p` pause, `` Ctrl/Cmd+` `` toggle terminal, `?` help
 
 ## Custom terminal scripts
 

@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import type { BlameLine, DiffLine, ParsedDiff } from "@shared/types";
+import type { BlameLine, DiffLine, ParsedDiff, FileContents } from "@shared/types";
 import { activeShikiTheme, getHighlighter, langFromPath } from "../lib/highlight";
 import { escapeHtml } from "../lib/html";
 import { useStore } from "../store";
@@ -15,6 +15,7 @@ interface Props {
   loading?: boolean;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
+  fileViewMode?: { path: string; contents: FileContents };
 }
 
 const LARGE_HUNK_LINE_THRESHOLD = 5000;
@@ -28,6 +29,7 @@ export function DiffView({
   loading,
   collapsed: collapsedProp,
   onToggleCollapsed,
+  fileViewMode,
 }: Props) {
   const [userExpanded, setUserExpanded] = useState(false);
   const [internalCollapsed, setInternalCollapsed] = useState(false);
@@ -57,6 +59,10 @@ export function DiffView({
     ro.observe(containerEl);
     return () => ro.disconnect();
   }, [containerEl]);
+
+  if (fileViewMode) {
+    return <FileViewer file={fileViewMode} />;
+  }
 
   if (loading) {
     return <div className="p-4 text-fg-muted">Loading diff…</div>;
@@ -480,5 +486,82 @@ function ImagePlaceholder({ label }: { label: string }) {
       {label}
     </div>
   );
+}
+
+function FileViewer({ file }: { file: { path: string; contents: FileContents } }) {
+  const { path, contents } = file;
+
+  if (contents.kind === "tooLarge") {
+    return (
+      <div className="p-4 text-sm text-fg-muted">
+        <div className="font-medium text-fg">{path}</div>
+        <div>File too large to display ({formatBytes(contents.size)}).</div>
+      </div>
+    );
+  }
+
+  if (contents.kind === "binary") {
+    return (
+      <div className="p-4 text-sm text-fg-muted">
+        <div className="font-medium text-fg">{path}</div>
+        <div>Binary file ({formatBytes(contents.size)}).</div>
+      </div>
+    );
+  }
+
+  if (contents.kind === "image") {
+    const src = `data:${contents.mime};base64,${contents.base64}`;
+    return (
+      <div className="flex h-full flex-col overflow-auto p-4">
+        <div className="mb-2 text-sm text-fg-muted">
+          {path} · <span className="rounded border border-border px-1 text-[10px] uppercase">read-only</span>
+        </div>
+        <img src={src} alt={path} className="max-h-full max-w-full object-contain" />
+      </div>
+    );
+  }
+
+  // kind === "text"
+  return <FileViewerText path={path} content={contents.content} />;
+}
+
+function FileViewerText({ path, content }: { path: string; content: string }) {
+  const [html, setHtml] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const hl = await getHighlighter();
+      const theme = activeShikiTheme();
+      const lang = langFromPath(path);
+      try {
+        const rendered = hl.codeToHtml(content, { lang, theme });
+        if (!cancelled) setHtml(rendered);
+      } catch {
+        if (!cancelled) setHtml(`<pre>${escapeHtml(content)}</pre>`);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [path, content]);
+
+  return (
+    <div className="flex h-full flex-col overflow-auto">
+      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-bg-elevated px-3 py-1.5 text-xs text-fg-muted">
+        <span className="font-medium text-fg">{path}</span>
+        <span className="rounded border border-border px-1 text-[10px] uppercase">read-only</span>
+      </div>
+      <div
+        className="flex-1 overflow-auto p-3 font-mono text-xs"
+        dangerouslySetInnerHTML={html ? { __html: html } : { __html: `<pre>${escapeHtml(content)}</pre>` }}
+      />
+    </div>
+  );
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 

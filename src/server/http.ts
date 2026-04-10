@@ -14,6 +14,12 @@ import {
 } from "./blame";
 import { createTerminalModule, type TerminalModule } from "./terminal";
 import type { TerminalSocketData } from "./terminal/ws";
+import {
+  listTree,
+  readFile as readTreeFile,
+  InvalidPathError,
+  NotFoundError,
+} from "./tree";
 
 const MIME_BY_EXT: Record<string, string> = {
   png: "image/png",
@@ -312,6 +318,39 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
         }
         return json({ error: `invalid ref: ${ref}` }, 400);
       } catch (err) {
+        return errorResponse(err);
+      }
+    }
+
+    if (pathname === "/api/tree") {
+      if (!repo) return json({ error: "no repo loaded" }, 400);
+      const hideIgnored = url.searchParams.get("hideIgnored") !== "0";
+      try {
+        const entries = await listTree(repo.cwd, { hideIgnored });
+        return json({ entries });
+      } catch (err) {
+        return errorResponse(err);
+      }
+    }
+
+    if (pathname === "/api/file") {
+      if (!repo) return json({ error: "no repo loaded" }, 400);
+      const path = url.searchParams.get("path");
+      if (!path) return json({ error: "path required" }, 400);
+      // Reuse the existing isRepoRelPathSafe gate for the obvious cases —
+      // readTreeFile has its own deeper check but failing early gives a
+      // clean 400 instead of a generic error.
+      if (!isRepoRelPathSafe(path)) return json({ error: "invalid path" }, 400);
+      try {
+        const contents = await readTreeFile(repo.cwd, path);
+        return json(contents);
+      } catch (err) {
+        if (err instanceof NotFoundError) {
+          return json({ error: err.message }, 404);
+        }
+        if (err instanceof InvalidPathError) {
+          return json({ error: err.message }, 400);
+        }
         return errorResponse(err);
       }
     }

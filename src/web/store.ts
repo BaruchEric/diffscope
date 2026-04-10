@@ -3,7 +3,9 @@ import type {
   BlameLine,
   Branch,
   Commit,
+  FileContents,
   FileStatus,
+  FsEntry,
   ParsedDiff,
   RepoInfo,
   SseEvent,
@@ -70,6 +72,10 @@ interface StoreState {
   openSettings: () => void;
   closeSettings: () => void;
 
+  exploreEntries: FsEntry[];
+  exploreFocusedPath: string | null;
+  viewingFile: { path: string; contents: FileContents } | null;
+
   togglePaused: () => void;
   focusFile: (path: string) => Promise<void>;
   focusCommit: (sha: string) => Promise<void>;
@@ -78,6 +84,10 @@ interface StoreState {
   loadLog: () => Promise<void>;
   initialize: () => Promise<void>;
   teardown: () => void;
+
+  loadExploreEntries: (hideIgnored: boolean) => Promise<void>;
+  focusExploreFile: (path: string) => Promise<void>;
+  clearViewingFile: () => void;
 }
 
 export const useStore = create<StoreState>((set, get) => ({
@@ -97,6 +107,9 @@ export const useStore = create<StoreState>((set, get) => ({
   watcherDown: false,
   error: null,
   toasts: [],
+  exploreEntries: [],
+  exploreFocusedPath: null,
+  viewingFile: null,
   dismissToast: (id) =>
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   blameOnFor: new Set<string>(),
@@ -245,6 +258,46 @@ export const useStore = create<StoreState>((set, get) => ({
     get().sse?.close();
     set({ sse: null });
   },
+
+  loadExploreEntries: async (hideIgnored) => {
+    try {
+      const { entries } = await api.tree(hideIgnored);
+      set({ exploreEntries: entries });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({
+        toasts: pushToast(get().toasts, makeToast("warning", `Load tree failed: ${msg}`)),
+      });
+    }
+  },
+
+  focusExploreFile: async (path) => {
+    const changed = get().status.some((f) => f.path === path);
+    if (changed) {
+      set({ exploreFocusedPath: path, viewingFile: null });
+      await get().focusFile(path);
+      return;
+    }
+    set({
+      exploreFocusedPath: path,
+      focusedPath: null,
+      focusedDiff: null,
+      viewingFile: null,
+    });
+    try {
+      const contents = await api.file(path);
+      if (get().exploreFocusedPath === path) {
+        set({ viewingFile: { path, contents } });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      set({
+        toasts: pushToast(get().toasts, makeToast("warning", `Read file failed: ${msg}`)),
+      });
+    }
+  },
+
+  clearViewingFile: () => set({ viewingFile: null }),
 }));
 
 function fileStatusEqual(a: FileStatus, b: FileStatus): boolean {
@@ -354,5 +407,13 @@ function handleEvent(
         toasts: pushToast(get().toasts, makeToast("warning", event.message)),
       });
       break;
+    case "tree-updated": {
+      set({ exploreEntries: event.entries });
+      const viewing = get().viewingFile;
+      if (viewing && !event.entries.some((e) => e.path === viewing.path)) {
+        set({ viewingFile: null, exploreFocusedPath: null });
+      }
+      break;
+    }
   }
 }

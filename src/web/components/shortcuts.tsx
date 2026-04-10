@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useStore } from "../store";
 import { useSettings } from "../settings";
 import { allDirPathsForTree, visibleFilePathsForTree } from "./file-tree";
+import {
+  allExploreDirPaths,
+  visibleExploreFilePaths,
+} from "./file-explorer";
 import { Modal } from "./modal";
 
 const TABS_ORDER = ["working-tree", "history", "branches", "stashes"] as const;
@@ -24,6 +28,7 @@ const SHORTCUT_HELP: ShortcutRow[] = [
   { keys: "g then w/h/b/s", description: "Jump to Working Tree / History / Branches / Stashes" },
   { keys: "u", description: "Toggle unified / split diff" },
   { keys: "t", description: "Toggle flat / tree file list" },
+  { keys: "e", description: "Toggle Changes / Explore (Working Tree)" },
   { keys: "b", description: "Toggle blame on current file" },
   { keys: "/", description: "Filter file list" },
   { keys: "p", description: "Pause / resume live updates" },
@@ -167,6 +172,14 @@ export function Shortcuts() {
           .set({ fileListMode: cur === "tree" ? "flat" : "tree" });
         return;
       }
+      if (e.key === "e") {
+        if (useSettings.getState().lastUsedTab !== "working-tree") return;
+        const cur = useSettings.getState().workingTreeMode;
+        useSettings
+          .getState()
+          .set({ workingTreeMode: cur === "explore" ? "changes" : "explore" });
+        return;
+      }
       if (e.key === "b") {
         const p = s.focusedPath;
         if (p) s.toggleBlame(p);
@@ -241,7 +254,17 @@ function navigateSibling(delta: 1 | -1): void {
   const s = useStore.getState();
   const mode = useSettings.getState().fileListMode;
   const tab = useSettings.getState().lastUsedTab;
+  const wtMode = useSettings.getState().workingTreeMode;
   if (tab === "working-tree") {
+    if (wtMode === "explore") {
+      const entries = s.exploreEntries;
+      const paths = visibleExploreFilePaths(entries, allExploreDirPaths(entries));
+      if (paths.length === 0) return;
+      const idx = s.exploreFocusedPath ? paths.indexOf(s.exploreFocusedPath) : -1;
+      const next = paths[(idx + delta + paths.length) % paths.length];
+      if (next) void s.focusExploreFile(next);
+      return;
+    }
     let paths: string[] = s.status.map((f) => f.path);
     if (mode === "tree") {
       // Use all-expanded for sibling navigation so every file is reachable.
