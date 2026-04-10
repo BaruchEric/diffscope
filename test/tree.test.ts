@@ -220,4 +220,16 @@ describe("readFile kinds", () => {
     expect(result.kind).toBe("tooLarge");
     if (result.kind === "tooLarge") expect(result.size).toBe(3 * 1024 * 1024);
   });
+
+  test("large image file → tooLarge (not image)", async () => {
+    // 3 MB PNG-shaped file — must be tooLarge, not image, because the size
+    // check runs before the image-extension check.
+    const big = Buffer.alloc(3 * 1024 * 1024, 0x89);
+    writeFileSync(join(temp.root, "big.png"), big);
+    temp.git("add", ".");
+    temp.git("commit", "-m", "init");
+
+    const result = await readFile(temp.root, "big.png");
+    expect(result.kind).toBe("tooLarge");
+  });
 });

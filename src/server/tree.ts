@@ -28,7 +28,7 @@ const IMAGE_MIME_BY_EXT: Record<string, string> = {
   ".jpeg": "image/jpeg",
   ".gif": "image/gif",
   ".webp": "image/webp",
-  ".svg": "image/svg+xml",
+  ".svg": "image/svg+xml", // Treated as image (renders inline); edit as XML in external editor.
   ".bmp": "image/bmp",
   ".ico": "image/x-icon",
 };
