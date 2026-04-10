@@ -3,6 +3,7 @@ import type {
   Branch,
   Commit,
   FileStatus,
+  FsEntry,
   ParsedDiff,
   RepoInfo,
   SseEvent,
@@ -12,6 +13,7 @@ import type { Repo } from "./repo";
 import { GitError } from "./repo";
 import { invalidateBlameCache } from "./blame";
 import { startWatcher, type WatcherEvent, type WatcherHandle } from "./watcher";
+import { listTree } from "./tree";
 
 type Subscriber = (event: SseEvent) => void;
 
@@ -28,6 +30,7 @@ export function createEventHub(repo: Repo): EventHub {
   let statusSnapshot: FileStatus[] = [];
   let branchesSnapshot: Branch[] = [];
   let stashesSnapshot: Stash[] = [];
+  let treeSnapshot: FsEntry[] = [];
   let repoInfo: RepoInfo = { root: repo.cwd, headSha: "", currentBranch: null };
   let watcherHandle: WatcherHandle | null = null;
 
@@ -133,19 +136,40 @@ export function createEventHub(repo: Repo): EventHub {
     }
   };
 
+  const refreshTree = async () => {
+    try {
+      // Default to hideIgnored=true on the server side — the frontend
+      // re-requests the full listing via /api/tree when the user flips
+      // the toggle, and tree-updated streams always reflect the
+      // hideIgnored=true view. Live-updating both views for every watcher
+      // tick would double the work without a meaningful benefit.
+      treeSnapshot = await listTree(repo.cwd, { hideIgnored: true });
+      emit({ type: "tree-updated", entries: treeSnapshot });
+    } catch (err) {
+      if (err instanceof GitError) emit({ type: "warning", message: err.stderr });
+    }
+  };
+
   const handleWatcherEvent = async (event: WatcherEvent) => {
     switch (event.kind) {
       case "working-tree-changed":
       case "gitignore-changed":
       case "index-changed":
-        await refreshStatus({ withDiffs: true, pathsToDiff: event.paths });
+        await Promise.all([
+          refreshStatus({ withDiffs: true, pathsToDiff: event.paths }),
+          refreshTree(),
+        ]);
         break;
       case "head-changed":
         invalidateBlameCache();
-        // refreshRepoInfo and refreshStatus touch independent state — run
-        // them in parallel so a fresh commit doesn't stall the UI while we
-        // sequentially wait for two git subprocess chains.
-        await Promise.all([refreshRepoInfo(), refreshStatus({ withDiffs: false })]);
+        // refreshRepoInfo, refreshStatus, and refreshTree touch independent
+        // state — run them in parallel so a fresh commit doesn't stall the UI
+        // while we sequentially wait for multiple git subprocess chains.
+        await Promise.all([
+          refreshRepoInfo(),
+          refreshStatus({ withDiffs: false }),
+          refreshTree(),
+        ]);
         emit({
           type: "head-changed",
           headSha: repoInfo.headSha,
@@ -174,16 +198,18 @@ export function createEventHub(repo: Repo): EventHub {
 
   return {
     async start() {
-      // Fan out the three independent startup queries — they share no state
-      // and each spawns its own git subprocess, so sequential awaits triple
-      // the user's first-paint latency.
-      const [, nextStatus, nextStashes] = await Promise.all([
+      // Fan out the four independent startup queries — they share no state
+      // and each spawns its own git subprocess, so sequential awaits would
+      // multiply the user's first-paint latency.
+      const [, nextStatus, nextStashes, nextTree] = await Promise.all([
         refreshRepoInfo(),
         repo.getStatus(),
         repo.getStashes().catch(() => [] as Stash[]),
+        listTree(repo.cwd, { hideIgnored: true }).catch(() => [] as FsEntry[]),
       ]);
       statusSnapshot = nextStatus;
       stashesSnapshot = nextStashes;
+      treeSnapshot = nextTree;
       // Serialize handler dispatch — concurrent handlers would race on
       // statusSnapshot/branchesSnapshot/etc. and could emit duplicate or
       // out-of-order events. Chaining onto an inflight promise guarantees
