@@ -34,6 +34,13 @@ function buildTreeUncached<T extends { path: string }>(items: T[]): TreeNode<T> 
           children: [],
         };
         cursor.children.push(child);
+      } else if (!isLast) {
+        // Upgrade to directory if this segment is used as a parent of
+        // deeper paths. Handles the case where listTree emits a bare
+        // directory entry (e.g., { path: "src" }) before the files
+        // inside it — the first visit creates the node as a leaf, but
+        // subsequent visits through it as a prefix prove it's a dir.
+        child.isDir = true;
       }
       if (isLast) child.data = item;
       cursor = child;

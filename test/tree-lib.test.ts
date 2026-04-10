@@ -44,6 +44,20 @@ describe("buildTreeFromPaths", () => {
     ]);
     expect(tree.children[0]!.data?.label).toBe("hello");
   });
+
+  test("upgrades a leaf to directory when later paths use it as a parent", () => {
+    // listTree emits bare directory entries (e.g., { path: "src" }) before
+    // the files inside them. The first visit creates the node as a leaf;
+    // subsequent visits through it as a prefix must upgrade it to a dir.
+    const tree = buildTreeFromPaths<Item>([
+      { path: "src" },
+      { path: "src/a.ts" },
+      { path: "src/b.ts" },
+    ]);
+    const src = tree.children.find((c) => c.name === "src")!;
+    expect(src.isDir).toBe(true);
+    expect(src.children.map((c) => c.name)).toEqual(["a.ts", "b.ts"]);
+  });
 });
 
 describe("collectAncestorDirs", () => {
