@@ -9,9 +9,29 @@
 // too-large detection server-side. Diffscope remains read-only — there is no
 // counterpart write API.
 import { readdir, lstat, stat, readFile as fsReadFile, realpath } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
+import { join, resolve, sep, extname } from "node:path";
 import type { FsEntry, FileContents } from "../shared/types";
 import { runGit } from "./git";
+
+/** 2 MB cap before we bail out with `tooLarge`. Matches the spirit of the
+ *  existing DiffView large-hunk threshold — anything bigger is not useful
+ *  to scroll in-browser and should open in the user's editor instead. */
+const LARGE_FILE_LIMIT = 2 * 1024 * 1024;
+
+/** Number of head bytes inspected for the NUL-byte heuristic. 8 KB is the
+ *  same slice git uses for its own binary detection. */
+const BINARY_PROBE_BYTES = 8192;
+
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+  ".bmp": "image/bmp",
+  ".ico": "image/x-icon",
+};
 
 /**
  * Enumerate the working tree.
@@ -162,8 +182,27 @@ export async function readFile(
   }
   if (!st.isFile()) throw new Error("not a file");
 
-  const content = await fsReadFile(target, "utf8");
-  return { kind: "text", content };
+  if (st.size > LARGE_FILE_LIMIT) {
+    return { kind: "tooLarge", size: st.size };
+  }
+
+  const ext = extname(target).toLowerCase();
+  const imageMime = IMAGE_MIME_BY_EXT[ext];
+  if (imageMime) {
+    const bytes = await fsReadFile(target);
+    return { kind: "image", mime: imageMime, base64: bytes.toString("base64") };
+  }
+
+  // Read once, inspect the head for NUL, then either return binary or
+  // decode as UTF-8. Cheaper than two reads and safe for files <= 2 MB.
+  const bytes = await fsReadFile(target);
+  const probeLen = Math.min(bytes.length, BINARY_PROBE_BYTES);
+  for (let i = 0; i < probeLen; i++) {
+    if (bytes[i] === 0) {
+      return { kind: "binary", size: st.size };
+    }
+  }
+  return { kind: "text", content: bytes.toString("utf8") };
 }
 
 function isRelPathSafe(path: string): boolean {
