@@ -7,6 +7,8 @@ export function StatusBar() {
   const status = useStore((s) => s.status);
   const branches = useStore((s) => s.branches);
   const watcherDown = useStore((s) => s.watcherDown);
+  const viewingFile = useStore((s) => s.viewingFile);
+  const focusedDiff = useStore((s) => s.focusedDiff);
   const paused = useStore((s) => s.paused);
   const terminalCount = useTerminalStore((s) => s.terminals.length);
   const drawerOpen = useSettings((s) => s.terminalDrawerOpen);
@@ -48,6 +50,15 @@ export function StatusBar() {
         {untracked > 0 && <span className="text-diff-add-sign">{untracked} untracked</span>}
         {staged === 0 && unstaged === 0 && untracked === 0 && "clean"}
       </span>
+      {viewingFile && !focusedDiff && (
+        <span className="text-fg-muted">
+          viewing: <span className="text-fg">{viewingFile.path}</span>
+          {viewingFile.contents.kind !== "text" && (
+            <> · <span>{viewingFile.contents.kind}</span></>
+          )}
+          {" "}· read-only
+        </span>
+      )}
       <div className="ml-auto flex items-center gap-2">
         <span className="truncate font-mono text-fg-subtle">
           {repo?.headSha?.slice(0, 7)}
