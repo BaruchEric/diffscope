@@ -132,7 +132,14 @@ export function createRepo(cwd: string): Repo {
     async getCommit(sha) {
       const [metaRaw, diffRaw] = await Promise.all([
         runGit(cwd, ["log", "-1", `--format=${LOG_FORMAT}`, sha]),
-        runGit(cwd, ["show", "--patch", "--format=", "--no-color", sha]),
+        // --first-parent -m: for merge commits, show the diff against the
+        // first parent (the branch you were on). Without this, `git show`
+        // on a clean merge produces an empty diff because there are no
+        // conflict resolutions to display.
+        runGit(cwd, [
+          "show", "--patch", "--format=", "--no-color",
+          "--first-parent", "-m", sha,
+        ]),
       ]);
       const meta = parseLog(metaRaw)[0];
       if (!meta) throw new Error(`commit ${sha} not found`);
