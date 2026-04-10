@@ -8,10 +8,10 @@
 // readFile is deliberately narrow: path-safety enforced, image / binary /
 // too-large detection server-side. Diffscope remains read-only — there is no
 // counterpart write API.
-import { spawn } from "node:child_process";
 import { readdir, lstat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { FsEntry, FileContents } from "../shared/types";
+import { runGit } from "./git";
 
 /**
  * Enumerate the working tree.
@@ -33,29 +33,12 @@ export async function listTree(
   return walkDisk(repoRoot);
 }
 
-function gitListFiles(repoRoot: string): Promise<string[]> {
-  return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(
-      "git",
-      ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-      { cwd: repoRoot },
-    );
-    const chunks: Buffer[] = [];
-    const errChunks: Buffer[] = [];
-    child.stdout.on("data", (c: Buffer) => chunks.push(c));
-    child.stderr.on("data", (c: Buffer) => errChunks.push(c));
-    child.on("error", rejectPromise);
-    child.on("close", (code) => {
-      if (code !== 0) {
-        rejectPromise(new Error(Buffer.concat(errChunks).toString("utf8") || `git ls-files exited ${code}`));
-        return;
-      }
-      const raw = Buffer.concat(chunks).toString("utf8");
-      // -z uses NUL separators; trailing NUL produces an empty string we drop.
-      const paths = raw.split("\0").filter((p) => p.length > 0);
-      resolvePromise(paths);
-    });
-  });
+async function gitListFiles(repoRoot: string): Promise<string[]> {
+  const raw = await runGit(repoRoot, [
+    "ls-files", "--cached", "--others", "--exclude-standard", "-z",
+  ]);
+  // -z uses NUL separators; trailing NUL produces an empty string we drop.
+  return raw.split("\0").filter((p) => p.length > 0);
 }
 
 /**
@@ -90,6 +73,8 @@ async function walkDisk(repoRoot: string): Promise<FsEntry[]> {
       return;
     }
     for (const d of dirents) {
+      // Only skip top-level .git; nested .git dirs (e.g., submodule worktrees)
+      // are walked. Submodule support is not in scope for Explore mode.
       if (relDir === "" && d.name === ".git") continue;
       const abs = join(absDir, d.name);
       const rel = relDir ? `${relDir}/${d.name}` : d.name;
@@ -102,6 +87,8 @@ async function walkDisk(repoRoot: string): Promise<FsEntry[]> {
         continue;
       }
       if (st.isSymbolicLink()) {
+        // size is the symlink metadata size (bytes of the link path), not the
+        // target file size — lstat does not follow the link.
         out.push({ path: rel, isDir: false, size: st.size });
         continue;
       }
