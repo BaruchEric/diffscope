@@ -194,17 +194,33 @@ export async function startHttpServer(opts: HttpServerOptions): Promise<StartedS
       const stream = new ReadableStream({
         start(controller) {
           const encoder = new TextEncoder();
+          let closed = false;
           const send = (event: unknown) => {
-            const data = `data: ${JSON.stringify(event)}\n\n`;
-            controller.enqueue(encoder.encode(data));
+            if (closed) return;
+            try {
+              const data = `data: ${JSON.stringify(event)}\n\n`;
+              controller.enqueue(encoder.encode(data));
+            } catch {
+              // Controller closed (client disconnected) — unsubscribe so the
+              // emit loop in events.ts doesn't crash on this subscriber.
+              closed = true;
+              unsubscribe();
+            }
           };
           const { snapshot, unsubscribe } = hub!.subscribe((event) => send(event));
           send(snapshot);
           // Keepalive ping every 25s to prevent proxy timeouts
           const keepalive = setInterval(() => {
-            controller.enqueue(encoder.encode(`: keepalive\n\n`));
+            if (closed) return;
+            try {
+              controller.enqueue(encoder.encode(`: keepalive\n\n`));
+            } catch {
+              closed = true;
+              clearInterval(keepalive);
+            }
           }, 25000);
           req.signal.addEventListener("abort", () => {
+            closed = true;
             clearInterval(keepalive);
             unsubscribe();
             try {
