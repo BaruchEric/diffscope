@@ -114,7 +114,30 @@ export type SseEvent =
   | { type: "watcher-down" }
   | { type: "watcher-up" }
   | { type: "repo-error"; reason: string }
-  | { type: "warning"; message: string };
+  | { type: "warning"; message: string }
+  | { type: "tree-updated"; entries: FsEntry[] };
+
+/**
+ * A single entry in the working-tree listing served by /api/tree.
+ * Directories are synthesized from file paths; see src/server/tree.ts.
+ */
+export interface FsEntry {
+  /** Repo-root-relative, POSIX separators. */
+  path: string;
+  isDir: boolean;
+  /** Files only. Omitted for directories. */
+  size?: number;
+}
+
+/**
+ * Server response for /api/file. Images transport as base64 so the whole
+ * response shape stays JSON; clients decode to an object URL.
+ */
+export type FileContents =
+  | { kind: "text"; content: string }
+  | { kind: "image"; mime: string; base64: string }
+  | { kind: "binary"; size: number }
+  | { kind: "tooLarge"; size: number };
 
 export interface BrowseEntry {
   name: string;
