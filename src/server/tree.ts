@@ -8,7 +8,7 @@
 // readFile is deliberately narrow: path-safety enforced, image / binary /
 // too-large detection server-side. Diffscope remains read-only — there is no
 // counterpart write API.
-import { readdir, lstat, stat, readFile as fsReadFile, readlink } from "node:fs/promises";
+import { readdir, lstat, stat, readFile as fsReadFile, realpath } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import type { FsEntry, FileContents } from "../shared/types";
 import { runGit } from "./git";
@@ -138,12 +138,14 @@ export async function readFile(
     throw new Error("not found");
   }
   if (linkSt.isSymbolicLink()) {
+    // realpath fully resolves the symlink chain (multi-hop + relative), so
+    // we catch escapes-via-chain that a single readlink() would miss.
+    // It throws ENOENT on dangling links, which we surface as "not found".
     let resolvedLink: string;
     try {
-      const linkTarget = await readlink(target);
-      resolvedLink = resolve(target, "..", linkTarget);
+      resolvedLink = await realpath(target);
     } catch {
-      throw new Error("invalid path");
+      throw new Error("not found");
     }
     if (resolvedLink !== rootAbs && !resolvedLink.startsWith(rootAbs + sep)) {
       throw new Error("invalid path");

@@ -150,4 +150,25 @@ describe("readFile path safety", () => {
 
     await expect(readFile(temp.root, "escape.txt")).rejects.toThrow(/invalid path/i);
   });
+
+  test("allows symlinks pointing inside the repo root", async () => {
+    temp.write("real.ts", "real content\n");
+    symlinkSync("real.ts", join(temp.root, "alias.ts"));
+
+    const result = await readFile(temp.root, "alias.ts");
+    expect(result.kind).toBe("text");
+    if (result.kind === "text") expect(result.content).toBe("real content\n");
+  });
+
+  test("rejects chained symlinks whose final target escapes the repo", async () => {
+    // link1 -> link2 (inside repo) -> /etc/passwd (outside)
+    symlinkSync("/etc/passwd", join(temp.root, "hop2.txt"));
+    symlinkSync("hop2.txt", join(temp.root, "hop1.txt"));
+
+    await expect(readFile(temp.root, "hop1.txt")).rejects.toThrow(/invalid path/i);
+  });
+
+  test("throws 'not found' for missing file", async () => {
+    await expect(readFile(temp.root, "ghost.ts")).rejects.toThrow(/not found/i);
+  });
 });
