@@ -7,7 +7,19 @@ A local, read-only, live git diff viewer. Point it at any repo on your machine a
 - [Bun](https://bun.sh) ≥ 1.2
 - `git` on your PATH
 
-## Install (from source)
+## Install
+
+```bash
+bun add -g diffscope
+```
+
+or with npm:
+
+```bash
+npm install -g diffscope
+```
+
+### From source
 
 ```bash
 git clone https://github.com/BaruchEric/diffscope.git

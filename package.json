@@ -1,11 +1,39 @@
 {
   "name": "diffscope",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A local, read-only, live git diff viewer.",
   "type": "module",
+  "license": "MIT",
+  "author": "Eric Baruch",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BaruchEric/diffscope.git"
+  },
+  "homepage": "https://github.com/BaruchEric/diffscope",
+  "bugs": "https://github.com/BaruchEric/diffscope/issues",
+  "keywords": [
+    "git",
+    "diff",
+    "viewer",
+    "cli",
+    "bun",
+    "live",
+    "working-tree",
+    "terminal"
+  ],
+  "engines": {
+    "bun": ">=1.2.0"
+  },
   "bin": {
     "diffscope": "./bin/diffscope.ts"
   },
+  "files": [
+    "bin/",
+    "src/server/",
+    "src/shared/",
+    "dist/web/",
+    "scripts/"
+  ],
   "scripts": {
     "dev": "(trap 'kill 0' INT; DIFFSCOPE_DEV_PORT=41111 bun run dev:server & bun run dev:web & wait)",
     "dev:server": "bun run --hot src/server/cli.ts",
@@ -15,6 +43,7 @@
     "test": "bun test",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json",
     "lint": "oxlint",
+    "prepublishOnly": "bun run build:web",
     "postinstall": "bash scripts/postinstall-node-pty.sh"
   },
   "dependencies": {
