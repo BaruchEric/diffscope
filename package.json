@@ -37,7 +37,7 @@
   "scripts": {
     "dev": "(trap 'kill 0' INT; DIFFSCOPE_DEV_PORT=41111 bun run dev:server & bun run dev:web & wait)",
     "dev:server": "bun run --hot src/server/cli.ts",
-    "dev:web": "vite",
+    "dev:web": "vite --port ${DEVHUB_PORT:-5173}",
     "build:web": "vite build",
     "start": "bun run src/server/cli.ts",
     "test": "bun test",
